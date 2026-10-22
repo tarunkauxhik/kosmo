@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Next.js and build output
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment (only the examples are committed)
+.env*
+!.env.example
+
+# Convex local backend state
+.convex/
+
+# Vercel
+.vercel
+
+# Python (voice-agent)
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+
+# Logs and coverage
+*.log
+coverage/
+
+# Screenshots and scratch
+/screenshots/
+*-screens*/
+/tmp/
+
+# Editors, OS and agent tooling caches
+.DS_Store
+Thumbs.db
+*.pem
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.playwright-mcp/
+.claude/settings.local.json

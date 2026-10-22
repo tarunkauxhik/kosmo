@@ -1,0 +1,276 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Kosmo: near-neutral surfaces, one iris accent, light and dark themes. See DESIGN.md.
+   The theme class (.dark) is set before first paint by the script in app/layout.tsx. */
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+
+    /* Surfaces get depth from a layered, transparent shadow instead of a solid border. */
+    --shadow-surface: var(--surface-shadow);
+    --shadow-surface-hover: var(--surface-shadow-hover);
+    --shadow-raised: var(--raised-shadow);
+
+    /* Radius scale. Nested surfaces follow outer = inner + padding (DESIGN.md). */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 10px;
+    --radius-xl: 14px;
+    --radius-2xl: 18px;
+    --radius-3xl: 24px;
+    --radius-4xl: 32px;
+}
+
+@theme static {
+    /* Strong ease-out for anything entering or responding to input; never ease-in. */
+    --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+    --animate-enter: enter 600ms var(--ease-out-strong) both;
+    --animate-rise: rise 240ms var(--ease-out-strong) both;
+}
+
+:root {
+    color-scheme: light;
+
+    --background: #ffffff;
+    --foreground: #131316;
+    --card: #ffffff;
+    --card-foreground: #131316;
+    --popover: #ffffff;
+    --popover-foreground: #131316;
+    --primary: #131316;
+    --primary-foreground: #ffffff;
+    --secondary: #f4f4f5;
+    --secondary-foreground: #131316;
+    --muted: #f4f4f5;
+    --muted-foreground: #5f5f69;
+    --accent: #f0f0f2;
+    --accent-foreground: #131316;
+    --destructive: #d93036;
+    --success: #137a3a;
+    --brand: #5b5bd6;
+    --brand-foreground: #ffffff;
+    --border: #e6e6e9;
+    --input: #dcdce0;
+    --ring: #5b5bd6;
+
+    --chart-1: #5b5bd6;
+    --chart-2: #137a3a;
+    --chart-3: #8e8e99;
+    --chart-4: #c2c2ca;
+    --chart-5: #d93036;
+
+    --radius: 10px;
+
+    --sidebar: #fafafa;
+    --sidebar-foreground: #131316;
+    --sidebar-primary: #131316;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #efeff1;
+    --sidebar-accent-foreground: #131316;
+    --sidebar-border: #ececef;
+    --sidebar-ring: #5b5bd6;
+
+    --surface-shadow: 0 0 0 1px rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.06), 0 2px 4px 0 rgb(0 0 0 / 0.03);
+    --surface-shadow-hover: 0 0 0 1px rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.08), 0 4px 8px 0 rgb(0 0 0 / 0.05);
+    --raised-shadow: 0 0 0 1px rgb(0 0 0 / 0.06), 0 8px 24px -6px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+    --image-outline: rgb(0 0 0 / 0.1);
+}
+
+.dark {
+    color-scheme: dark;
+
+    --background: #0e0e10;
+    --foreground: #ededef;
+    --card: #151518;
+    --card-foreground: #ededef;
+    --popover: #18181b;
+    --popover-foreground: #ededef;
+    --primary: #ededef;
+    --primary-foreground: #0e0e10;
+    --secondary: #1c1c20;
+    --secondary-foreground: #ededef;
+    --muted: #1c1c20;
+    --muted-foreground: #9b9ba5;
+    --accent: #222227;
+    --accent-foreground: #ededef;
+    --destructive: #ff6166;
+    --success: #3fb950;
+    --brand: #9d9dfa;
+    --brand-foreground: #0e0e10;
+    --border: #2a2a2f;
+    --input: #33333a;
+    --ring: #8484f2;
+
+    --chart-1: #9d9dfa;
+    --chart-2: #3fb950;
+    --chart-3: #6f6f7a;
+    --chart-4: #45454d;
+    --chart-5: #ff6166;
+
+    --sidebar: #0e0e10;
+    --sidebar-foreground: #ededef;
+    --sidebar-primary: #ededef;
+    --sidebar-primary-foreground: #0e0e10;
+    --sidebar-accent: #1c1c20;
+    --sidebar-accent-foreground: #ededef;
+    --sidebar-border: #222227;
+    --sidebar-ring: #8484f2;
+
+    --surface-shadow: 0 0 0 1px rgb(255 255 255 / 0.08);
+    --surface-shadow-hover: 0 0 0 1px rgb(255 255 255 / 0.13);
+    --raised-shadow: 0 0 0 1px rgb(255 255 255 / 0.09), 0 12px 32px -8px rgb(0 0 0 / 0.6);
+    --image-outline: rgb(255 255 255 / 0.1);
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+    html {
+        @apply font-sans;
+        -webkit-tap-highlight-color: transparent;
+    }
+    body {
+        @apply bg-background text-foreground antialiased;
+        font-optical-sizing: auto;
+    }
+    h1,
+    h2,
+    h3 {
+        text-wrap: balance;
+        scroll-margin-top: 5rem;
+    }
+    p,
+    li,
+    dd,
+    blockquote {
+        text-wrap: pretty;
+    }
+    button,
+    a,
+    input,
+    textarea,
+    select,
+    label {
+        touch-action: manipulation;
+    }
+    ::selection {
+        background: color-mix(in oklab, var(--brand) 28%, transparent);
+    }
+}
+
+@layer utilities {
+    /* 1px low-opacity outline so photos keep an edge on any surface. */
+    .image-outline {
+        outline: 1px solid var(--image-outline);
+        outline-offset: -1px;
+    }
+    /* Tactile press feedback for pressable surfaces (buttons get it from buttonVariants). */
+    .pressable {
+        transition-property: scale, box-shadow, background-color, color;
+        transition-duration: 160ms;
+        transition-timing-function: var(--ease-out-strong);
+    }
+    .pressable:active {
+        scale: 0.96;
+    }
+    /* Staged entrance; set --stagger on siblings (1, 2, 3…) for a 90ms cascade. */
+    .animate-enter {
+        animation: var(--animate-enter);
+        animation-delay: calc(90ms * var(--stagger, 0));
+    }
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        scrollbar-width: none;
+    }
+    .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}
+
+/* While the theme switches, colours change at once instead of every transition firing. */
+.theme-switching,
+.theme-switching * {
+    transition: none !important;
+}
+
+@keyframes enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+        filter: blur(6px);
+    }
+}
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+@keyframes typing {
+    0%,
+    60%,
+    100% {
+        opacity: 0.3;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-2px);
+    }
+}
+
+/* Reduced motion: keep fades that aid comprehension, drop movement. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+        animation-delay: 0ms !important;
+        scroll-behavior: auto !important;
+    }
+    .pressable:active {
+        scale: 1;
+    }
+}

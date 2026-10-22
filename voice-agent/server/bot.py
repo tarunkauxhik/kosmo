@@ -1,0 +1,254 @@
+#
+# Copyright (c) 2024–2025, Daily
+#
+# SPDX-License-Identifier: BSD 2-Clause License
+#
+
+"""Kosmo voice agent: Pipecat pipeline (Deepgram STT → OpenRouter LLM → Rumik SILK TTS)."""
+
+
+import os
+
+import aiohttp
+from dotenv import load_dotenv
+from loguru import logger
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
+from pipecat.frames.frames import LLMRunFrame
+from pipecat.pipeline.pipeline import Pipeline
+from pipecat.pipeline.runner import PipelineRunner
+from pipecat.pipeline.task import PipelineParams, PipelineTask
+from pipecat.processors.aggregators.llm_context import LLMContext
+from pipecat.processors.aggregators.llm_response_universal import (
+    LLMContextAggregatorPair,
+    LLMUserAggregatorParams,
+)
+from pipecat.runner.types import RunnerArguments, SmallWebRTCRunnerArguments
+from pipecat.services.deepgram.flux.stt import DeepgramFluxSTTService
+from pipecat.transports.base_transport import BaseTransport, TransportParams
+from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
+from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
+
+from openrouter_cerebras_llm import OpenRouterCerebrasLLMService
+
+load_dotenv(override=True)
+
+# ---------------------------------------------------------------------------
+# Pipecat bug workaround: the JS SDK posts `requestData` (camelCase) but the
+# Python SmallWebRTCRequest dataclass uses `request_data` (snake_case) WITHOUT
+# a pydantic alias. FastAPI silently drops the field, so runner_args.body
+# always ends up None. We patch by rewriting the body in middleware before
+# FastAPI parses it. This is what `SmallWebRTCRequest.from_dict` would do if
+# it were called — but FastAPI never calls it.
+# ---------------------------------------------------------------------------
+import json as _json
+
+from pipecat.runner.run import app as _runner_app
+
+from rumik_tts import RumikTTSService, RumikTTSSettings
+
+
+@_runner_app.middleware("http")
+async def _normalize_request_data(request, call_next):
+    if request.method == "POST" and request.url.path == "/api/offer":
+        body = await request.body()
+        try:
+            data = _json.loads(body)
+        except Exception:
+            data = None
+        if isinstance(data, dict) and "requestData" in data and "request_data" not in data:
+            data["request_data"] = data.pop("requestData")
+            new_body = _json.dumps(data).encode()
+            # Replace both the cached body and the receive channel — FastAPI
+            # reads from the cache after middleware calls .body(), so we must
+            # overwrite _body, and downstream re-reads use _receive.
+            request._body = new_body
+
+            async def receive():
+                return {"type": "http.request", "body": new_body, "more_body": False}
+
+            request._receive = receive
+    return await call_next(request)
+
+
+LANGUAGE_RULES = (
+    "LANGUAGE — STRICT: Reply in Hinglish (Hindi written in Roman/Latin script, "
+    "naturally mixed with English words). Do NOT use Devanagari (देवनागरी) script — "
+    "write Hindi words phonetically in Roman letters. This is how real Indian astrology "
+    "counsellors talk on phone calls. Examples of the right style: "
+    "'Namaste beta, kaisi hain aap aaj?', "
+    "'Aap ki marriage ke baare mein guidance chahiye? Pehle apna janma tithi bataiye.', "
+    "'Dekhiye, aapki kundali mein Saturn strong position mein hai, isliye thoda patience rakhna padega.'. "
+    "Keep it warm, casual, conversational — like a real elder counsellor on a phone call, "
+    "not a textbook. Even when discussing Vedic concepts, use the everyday Hinglish a "
+    "client would understand."
+)
+
+
+def build_system_prompt(counsellor: dict | None) -> str:
+    if not counsellor:
+        return (
+            "You are a warm, friendly Indian astrology counsellor speaking on a voice call. "
+            "Keep replies short (1-3 sentences). Avoid emojis, lists, or formatting. "
+            "Ask one clarifying question at a time.\n\n" + LANGUAGE_RULES
+        )
+    name = counsellor.get("name", "the counsellor")
+    specialties = ", ".join(counsellor.get("specialties", [])) or "astrology"
+    exp = counsellor.get("experienceYears", 5)
+    return (
+        f"You are {name}, an Indian astrology counsellor with {exp} years of experience. "
+        f"You specialise in {specialties}. "
+        "You are on a live voice call with a client who has come for guidance on a personal matter. "
+        "Speak warmly and unhurriedly, like an experienced practitioner. "
+        "Keep replies short (1-3 sentences) — this is a voice conversation, not an essay. "
+        "Avoid emojis, lists, or any formatting that doesn't speak naturally. "
+        "If the client asks for a reading, ask one focused clarifying question first "
+        "(birth time, birth place, the specific worry) before launching in. "
+        "Greet the client by introducing yourself by name.\n\n" + LANGUAGE_RULES
+    )
+
+
+async def run_bot(transport: BaseTransport, counsellor: dict | None = None):
+    logger.info("Starting bot")
+
+    # multilingual Flux transcribes Hinglish code-mix
+    stt = DeepgramFluxSTTService(
+        api_key=os.getenv("DEEPGRAM_API_KEY"),
+        settings=DeepgramFluxSTTService.Settings(
+            model="flux-general-multi",
+        ),
+    )
+
+    aiohttp_session = aiohttp.ClientSession()
+
+    tts = RumikTTSService(
+        api_key=os.getenv("SILK_API_KEY"),
+        aiohttp_session=aiohttp_session,
+        base_url=os.getenv("SILK_BASE_URL", "https://silk-api.rumik.ai"),
+        settings=RumikTTSSettings(
+            model=os.getenv("SILK_MODEL", "muga"),
+            tone=os.getenv("SILK_TONE", "neutral"),
+            speaker=os.getenv("SILK_SPEAKER") or None,
+            description=os.getenv("SILK_DESCRIPTION") or None,
+        ),
+    )
+
+    llm = OpenRouterCerebrasLLMService(
+        api_key=os.getenv("OPENROUTER_API_KEY"),
+        providers=[p.strip() for p in os.getenv("OPENROUTER_PROVIDER", "Cerebras").split(",") if p.strip()],
+        settings=OpenRouterCerebrasLLMService.Settings(
+            model=os.getenv("OPENROUTER_MODEL", "z-ai/glm-4.7"),
+        ),
+    )
+
+    context = LLMContext()
+    context.add_message({"role": "system", "content": build_system_prompt(counsellor)})
+    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.4)),
+        ),
+    )
+
+    pipeline = Pipeline([
+        transport.input(),
+        stt,
+        user_aggregator,
+        llm,
+        tts,
+        transport.output(),
+        assistant_aggregator,
+    ])
+
+    task = PipelineTask(
+        pipeline,
+        params=PipelineParams(
+            enable_metrics=True,
+            enable_usage_metrics=True,
+        ),
+        observers=[],
+    )
+
+    # Trigger the intro on the transport-level connected event so we don't
+    # depend on the WebRTC data channel / RTVI handshake — the audio media
+    # track is up by this point, which is all we need to play TTS.
+    intro_sent = False
+
+    async def send_intro():
+        nonlocal intro_sent
+        if intro_sent:
+            return
+        intro_sent = True
+        intro = (
+            f"Greet the client warmly in Hinglish (Roman script) as {counsellor.get('name')}, "
+            f"introduce yourself by name and your specialty, and ask kya guidance chahiye aaj. "
+            f"Example tone: 'Namaste, main {counsellor.get('name')} hoon, ...'"
+            if counsellor
+            else "Greet the client in Hinglish (Roman script) as a warm astrology counsellor and ask how you can help."
+        )
+        context.add_message({"role": "user", "content": intro})
+        await task.queue_frames([LLMRunFrame()])
+
+    @transport.event_handler("on_client_connected")
+    async def on_client_connected(transport, client):
+        logger.info("Client connected — sending intro")
+        await send_intro()
+
+    # Belt-and-braces: also fire on RTVI ready if the data channel does open.
+    @task.rtvi.event_handler("on_client_ready")
+    async def on_client_ready(rtvi):
+        logger.info("RTVI client ready")
+        await send_intro()
+
+    @transport.event_handler("on_client_disconnected")
+    async def on_client_disconnected(transport, client):
+        logger.info("Client disconnected")
+        await task.cancel()
+
+    runner = PipelineRunner(handle_sigint=False)
+
+    try:
+        await runner.run(task)
+    finally:
+        await aiohttp_session.close()
+
+
+async def bot(runner_args: RunnerArguments):
+    """Main bot entry point."""
+
+    transport = None
+
+    match runner_args:
+        case SmallWebRTCRunnerArguments():
+            webrtc_connection: SmallWebRTCConnection = runner_args.webrtc_connection
+
+            transport = SmallWebRTCTransport(
+                webrtc_connection=webrtc_connection,
+                params=TransportParams(
+                    audio_in_enabled=True,
+                    audio_out_enabled=True,
+                ),
+            )
+        case _:
+            logger.error(f"Unsupported runner arguments type: {type(runner_args)}")
+            return
+
+    counsellor = None
+    body = getattr(runner_args, "body", None)
+    if isinstance(body, dict):
+        # The Pipecat JS SDK wraps user requestData inside an outer object that
+        # also contains sdp/type/pc_id. Sometimes the server unwraps to just the
+        # user data, sometimes not. Try both.
+        counsellor = body.get("counsellor") or (
+            body.get("requestData", {}).get("counsellor") if isinstance(body.get("requestData"), dict) else None
+        ) or (
+            body.get("request_data", {}).get("counsellor") if isinstance(body.get("request_data"), dict) else None
+        )
+
+    await run_bot(transport, counsellor=counsellor)
+
+
+if __name__ == "__main__":
+    from pipecat.runner.run import main
+
+    main()
