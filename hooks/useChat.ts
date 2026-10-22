@@ -17,13 +17,6 @@ export type ChatMessage = {
     fresh?: boolean;
 };
 
-// Long replies are offered as voice notes: 320+ characters or 3+ sentences.
-function assistantKind(text: string): "text" | "voice" {
-    const t = text.trim();
-    if (t.length >= 320) return "voice";
-    return t.split(/[.!?]+\s/).filter((s) => s.trim()).length >= 3 ? "voice" : "text";
-}
-
 function isRateLimited(err: unknown) {
     const data = (err as { data?: unknown })?.data;
     return !!data && typeof data === "object" && (data as { kind?: string }).kind === "RateLimited";
@@ -62,7 +55,8 @@ export function useChat({
             role: m.role,
             content: m.content,
             createdAt: m.createdAt,
-            kind: m.role === "assistant" ? assistantKind(m.content) : voiceIds.has(m._id) ? "voice" : "text",
+            // Replies are always text (with an optional read-aloud button); only your own recordings are voice notes.
+            kind: voiceIds.has(m._id) ? "voice" : "text",
             fresh: m.role === "assistant" && m.createdAt > openedAt,
         }));
         // The greeting is never stored; it always opens the thread.

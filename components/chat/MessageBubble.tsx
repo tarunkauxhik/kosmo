@@ -1,6 +1,7 @@
 import { ThinkingOrb } from "thinking-orbs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, Check, RotateCcw } from "lucide-react";
+import { AlertCircle, Check, Pause, RotateCcw, Volume2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import type { ChatMessage } from "@/hooks/useChat";
 import type { AudioNote } from "@/hooks/useTtsPlayback";
 import { formatClock } from "@/lib/format";
@@ -29,11 +30,7 @@ export function MessageBubble({
                 <div
                     className={cn(
                         "text-[0.9375rem] leading-relaxed break-words",
-                        mine
-                            ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5"
-                            : message.kind === "voice"
-                              ? "rounded-2xl rounded-bl-md bg-card px-3.5 py-3 shadow-surface"
-                              : "py-1",
+                        mine ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5" : "py-1",
                         message.status === "sending" && "opacity-80",
                         failed && "ring-1 ring-destructive/60",
                     )}
@@ -43,8 +40,7 @@ export function MessageBubble({
                             id={message.id}
                             transcript={message.content}
                             playing={playing}
-                            loading={note?.status === "loading"}
-                            playable={!mine || Boolean(note?.url)}
+                            playable={Boolean(note?.url)}
                             onToggle={onTogglePlay}
                         />
                     ) : (
@@ -77,6 +73,26 @@ export function MessageBubble({
                                 {formatClock(message.createdAt)}
                             </time>
                             {mine && <Check className="size-3.5" aria-label="Sent" />}
+                            {/* Audio is opt-in: synthesised only when this button (or the header toggle) asks for it. */}
+                            {!mine && message.kind === "text" && (
+                                <button
+                                    type="button"
+                                    onClick={onTogglePlay}
+                                    disabled={note?.status === "loading"}
+                                    aria-pressed={playing}
+                                    aria-label={playing ? "Stop reading aloud" : "Read aloud"}
+                                    title={playing ? "Stop" : "Read aloud"}
+                                    className="relative grid size-6 place-items-center rounded-full transition-colors duration-150 outline-none after:absolute after:-inset-2 after:content-[''] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                                >
+                                    {note?.status === "loading" ? (
+                                        <Spinner className="size-3.5" />
+                                    ) : playing ? (
+                                        <Pause className="size-3.5" aria-hidden />
+                                    ) : (
+                                        <Volume2 className="size-3.5" aria-hidden />
+                                    )}
+                                </button>
+                            )}
                         </>
                     )}
                 </div>

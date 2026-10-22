@@ -50,6 +50,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
     poweredByHeader: false,
+    // `next dev` would otherwise append its own "not the Next.js you know" block to AGENTS.md,
+    // which already says the same in its Stack section.
+    agentRules: false,
     images: {
         formats: ["image/avif", "image/webp"],
         minimumCacheTTL: 60 * 60 * 24 * 30, // portraits rarely change

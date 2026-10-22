@@ -10,15 +10,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function CallSkeleton({ counsellor }: { counsellor: CallCounsellor }) {
     return (
-        <div
-            className="flex h-full flex-col items-center justify-center gap-6 px-5"
-            role="status"
-            aria-label="Preparing call"
-        >
-            <div className="grid size-60 place-items-center rounded-full border sm:size-72">
-                <PersonaAvatar src={counsellor.portrait} name={counsellor.name} size={132} eager />
+        // Same geometry as CallScreen (header height, orb size, spacing) so nothing jumps when it loads.
+        <div className="flex h-full flex-col px-5" role="status" aria-label="Preparing call">
+            <div className="h-15 shrink-0" />
+            <div className="flex min-h-0 w-full flex-1 flex-col items-center gap-5 py-2 sm:my-auto sm:max-h-176 sm:gap-6 sm:py-4">
+                <div className="grid size-44 shrink-0 place-items-center rounded-full border sm:size-72">
+                    <PersonaAvatar
+                        src={counsellor.portrait}
+                        name={counsellor.name}
+                        sizes="(min-width: 640px) 132px, 88px"
+                        eager
+                        className="size-22 sm:size-33"
+                    />
+                </div>
+                <Skeleton className="h-7 w-48 rounded-md" />
             </div>
-            <Skeleton className="h-7 w-48 rounded-md" />
         </div>
     );
 }

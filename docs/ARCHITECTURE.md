@@ -130,7 +130,7 @@ sequenceDiagram
   C-->>B: ids + text (the live getSession query also updates)
 ```
 
-Voice notes: the browser records with MediaRecorder, posts the audio to `/api/voice/transcribe` (Deepgram, pre-recorded) and sends the transcript through `chat.send`. Long assistant replies are shown as voice notes and synthesised on first play by `/api/tts`.
+Voice notes: the browser records with MediaRecorder, posts the audio to `/api/voice/transcribe` (Deepgram, pre-recorded) and sends the transcript through `chat.send`. Assistant replies are always shown as text; each has a small read-aloud button, and the header speaker toggle (off by default) plays new replies automatically. Audio is synthesised only on request, by `/api/tts`.
 
 ### Voice call
 

@@ -37,8 +37,10 @@ export default function CallScreen({ counsellor, onRetry }: { counsellor: CallCo
                 <AiBadge />
             </header>
 
-            <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto px-5 pb-6 text-center">
-                <div className="my-auto flex w-full flex-col items-center gap-6 py-4">
+            {/* The orb block keeps its size; the transcript below takes the rest of the height and scrolls.
+                On tall screens the column is capped and centred so it doesn't stretch. */}
+            <div className="flex min-h-0 flex-1 flex-col items-center px-5 text-center">
+                <div className="flex min-h-0 w-full max-w-lg flex-1 flex-col items-center gap-5 py-2 sm:my-auto sm:max-h-176 sm:gap-6 sm:py-4">
                     <CallOrb
                         portrait={counsellor.portrait}
                         name={counsellor.name}
@@ -46,8 +48,8 @@ export default function CallScreen({ counsellor, onRetry }: { counsellor: CallCo
                         activity={call.activity}
                         levelRef={call.levelRef}
                     />
-                    <div>
-                        <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">{counsellor.name}</h1>
+                    <div className="shrink-0">
+                        <h1 className="text-xl font-semibold tracking-tight sm:text-[1.75rem]">{counsellor.name}</h1>
                         <span className="sr-only" role="status">
                             {call.phase === "connecting"
                                 ? "Connecting"
@@ -79,7 +81,7 @@ export default function CallScreen({ counsellor, onRetry }: { counsellor: CallCo
                     </div>
 
                     {call.phase === "error" ? (
-                        <Alert variant="destructive" className="max-w-md text-left">
+                        <Alert variant="destructive" className="max-w-md shrink-0 text-left">
                             <AlertTitle>Couldn&rsquo;t start the call</AlertTitle>
                             <AlertDescription>{call.error}</AlertDescription>
                         </Alert>
@@ -89,17 +91,18 @@ export default function CallScreen({ counsellor, onRetry }: { counsellor: CallCo
                             assistant={call.captions.assistant}
                             activity={call.activity}
                             counsellorFirstName={first}
+                            className="min-h-0 flex-1"
                         />
                     ) : (
-                        <p className="max-w-xs text-sm text-muted-foreground">
+                        <p className="max-w-xs shrink-0 text-sm text-muted-foreground">
                             Allow microphone access if your browser asks. {first} will greet you first.
                         </p>
                     )}
                 </div>
             </div>
 
-            <footer className="shrink-0 px-5 pt-4 pb-safe">
-                <div className="mx-auto flex max-w-md items-center justify-center gap-4 pb-4">
+            <footer className="shrink-0 px-5 pt-3 pb-safe sm:pt-4">
+                <div className="mx-auto flex max-w-md items-center justify-center gap-4 pb-3 sm:pb-4">
                     {call.phase === "error" ? (
                         <>
                             <Button variant="outline" size="lg" asChild>

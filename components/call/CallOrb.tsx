@@ -22,7 +22,7 @@ export function CallOrb({
     return (
         <div
             ref={levelRef as React.RefObject<HTMLDivElement>}
-            className="relative grid size-60 place-items-center sm:size-72"
+            className="relative grid size-44 shrink-0 place-items-center sm:size-72"
             style={{ "--level": 0 } as React.CSSProperties}
         >
             <span
@@ -43,7 +43,14 @@ export function CallOrb({
             />
             <span aria-hidden className="absolute inset-[12%] rounded-full border" />
             <span aria-hidden className="absolute inset-[24%] rounded-full bg-card shadow-surface" />
-            <PersonaAvatar src={portrait} name={name} size={132} eager />
+            {/* Smaller on phones so the live transcript below gets most of the height. */}
+            <PersonaAvatar
+                src={portrait}
+                name={name}
+                sizes="(min-width: 640px) 132px, 88px"
+                eager
+                className="size-22 sm:size-33"
+            />
         </div>
     );
 }
