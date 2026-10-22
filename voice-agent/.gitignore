@@ -1,6 +1,0 @@
-# See the root .gitignore; these are the Python-specific extras.
-__pycache__/
-*.py[cod]
-.venv/
-.env
-.ruff_cache/
