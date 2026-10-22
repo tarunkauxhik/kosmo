@@ -74,6 +74,7 @@ const BODIES: Record<LegalKind, { heading: string; paragraphs: string[] }[]> = {
             heading: "Service providers",
             paragraphs: [
                 "Kosmo runs on Convex (database and backend) and is typically hosted on Vercel. AI replies come from Google Gemini and OpenRouter, speech recognition from Deepgram and voices from Rumik SILK. These providers process data on our behalf.",
+                "Vercel Web Analytics and Speed Insights count page views and measure how fast pages load. They use no cookies and do not track you across sites.",
             ],
         },
         {

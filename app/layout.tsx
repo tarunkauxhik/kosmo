@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { appConfig } from "@/lib/config";
 import { cn } from "@/lib/utils";
@@ -53,6 +55,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                     Skip to content
                 </a>
                 {children}
+                {/* Cookieless; scripts and beacons use /_vercel/* on this origin, so the CSP's 'self' covers them. */}
+                <Analytics />
+                <SpeedInsights />
             </body>
         </html>
     );
