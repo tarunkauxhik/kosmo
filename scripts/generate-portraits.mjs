@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
-import { writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync } from "node:fs";
+import sharp from "sharp";
 
 // Reads GEMINI_API_KEY from .env.local (Node 20.12+ built-in loader).
 try {
@@ -60,7 +61,7 @@ const PORTRAITS = [
 mkdirSync(OUT_DIR, { recursive: true });
 
 for (const p of PORTRAITS) {
-    const outPath = `${OUT_DIR}/${p.slug}.png`;
+    const outPath = `${OUT_DIR}/${p.slug}.webp`;
     if (existsSync(outPath)) {
         console.log(`skip ${p.slug} (exists)`);
         continue;
@@ -76,7 +77,11 @@ for (const p of PORTRAITS) {
             console.error(`no image returned for ${p.slug}`);
             continue;
         }
-        writeFileSync(outPath, Buffer.from(part.inlineData.data, "base64"));
+        // Same size and quality as the existing portraits: 640px WebP, about 20 to 50 KB.
+        await sharp(Buffer.from(part.inlineData.data, "base64"))
+            .resize(640, 640, { fit: "cover" })
+            .webp({ quality: 86, effort: 6, smartSubsample: true })
+            .toFile(outPath);
         console.log(`wrote ${outPath}`);
     } catch (e) {
         console.error(`error on ${p.slug}:`, e.message);

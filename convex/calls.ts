@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, internalMutation, mutation, query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import { action, internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import { openRouterReply, type LlmMessage } from "./lib/llm";
 import { voiceKickoff, voiceSystemPrompt } from "./lib/prompts";
 import { rateLimiter } from "./lib/rateLimits";
@@ -9,6 +10,20 @@ import { getUserByAuthId, promptProfile, requireUser } from "./lib/users";
 const HISTORY_LIMIT = 30;
 // The voiceTurn limit allows about 60 turns a minute, so this covers calls of well over 15 minutes.
 const MAX_TRANSCRIPT_TURNS = 1000;
+
+// Calls keep the portrait path they started with; show the persona's current one instead,
+// so renamed or newly added portrait files reach old calls too.
+async function withCurrentPortraits(ctx: QueryCtx, calls: Doc<"calls">[]) {
+    const portraits = new Map<string, string>();
+    for (const slug of new Set(calls.map((c) => c.counsellorSlug))) {
+        const counsellor = await ctx.db
+            .query("counsellors")
+            .withIndex("by_slug", (q) => q.eq("slug", slug))
+            .first();
+        if (counsellor) portraits.set(slug, counsellor.portrait);
+    }
+    return calls.map((c) => ({ ...c, counsellorPortrait: portraits.get(c.counsellorSlug) ?? c.counsellorPortrait }));
+}
 
 export const start = mutation({
     args: { counsellorSlug: v.string() },
@@ -52,11 +67,12 @@ export const listMine = query({
         if (!identity) return [];
         const user = await getUserByAuthId(ctx, identity.subject);
         if (!user) return [];
-        return await ctx.db
+        const calls = await ctx.db
             .query("calls")
             .withIndex("by_userId_startedAt", (q) => q.eq("userId", user._id))
             .order("desc")
             .take(100);
+        return await withCurrentPortraits(ctx, calls);
     },
 });
 
@@ -71,7 +87,8 @@ export const getMine = query({
             .withIndex("by_callId_ts", (q) => q.eq("callId", callId))
             .order("asc")
             .take(MAX_TRANSCRIPT_TURNS);
-        return { call, turns };
+        const [current] = await withCurrentPortraits(ctx, [call]);
+        return { call: current, turns };
     },
 });
 

@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
 
 // Shared Open Graph card for opengraph-image.tsx routes. Rendered at build time, in the dark theme.
 export const ogSize = { width: 1200, height: 630 };
@@ -17,8 +18,14 @@ export async function ogImage({ title, subtitle, portrait }: { title: string; su
         readFile(join(process.cwd(), "app/fonts/Geist-SemiBold.ttf")),
         readFile(join(process.cwd(), "app/fonts/Geist-Regular.ttf")),
     ]);
+    // Portraits are WebP, which Satori can't decode, so hand it a PNG at the size it draws.
     const photo = portrait
-        ? `data:image/png;base64,${(await readFile(join(process.cwd(), "public", portrait))).toString("base64")}`
+        ? `data:image/png;base64,${(
+              await sharp(join(process.cwd(), "public", portrait))
+                  .resize(340, 340)
+                  .png()
+                  .toBuffer()
+          ).toString("base64")}`
         : null;
 
     return new ImageResponse(
