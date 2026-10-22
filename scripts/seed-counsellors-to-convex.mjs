@@ -2,13 +2,11 @@
 // Usage: pnpm seed:counsellors            (dev deployment)
 //        pnpm seed:counsellors --prod     (production deployment)
 import { spawnSync } from "node:child_process";
-import { SEED_COUNSELLORS } from "../lib/constants.ts";
 
-const payload = JSON.stringify({ records: SEED_COUNSELLORS });
-const extra = process.argv.slice(2);
-
-const result = spawnSync("npx", ["convex", "run", ...extra, "counsellors:seed", payload], {
+const result = spawnSync("npx", ["convex", "run", ...process.argv.slice(2), "counsellors:seed"], {
     stdio: "inherit",
+    shell: process.platform === "win32",
 });
 
+if (result.error) console.error(result.error);
 process.exit(result.status ?? 1);

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
-import { counsellorFields } from "./schema";
+import { SEED_COUNSELLORS } from "../lib/constants";
 
 export const list = query({
     args: {
@@ -33,11 +33,12 @@ export const getBySlug = query({
     },
 });
 
-// Internal: run with `pnpm seed:counsellors` (which calls `npx convex run`).
+
+// Internal: upserts the personas from lib/constants.ts. Run with `pnpm seed:counsellors`.
 export const seed = internalMutation({
-    args: { records: v.array(v.object(counsellorFields)) },
-    handler: async (ctx, { records }) => {
-        for (const r of records) {
+    args: {},
+    handler: async (ctx) => {
+        for (const r of SEED_COUNSELLORS) {
             const existing = await ctx.db
                 .query("counsellors")
                 .withIndex("by_slug", (q) => q.eq("slug", r.slug))
@@ -45,6 +46,6 @@ export const seed = internalMutation({
             if (existing) await ctx.db.replace(existing._id, r);
             else await ctx.db.insert("counsellors", r);
         }
-        return records.length;
+        return SEED_COUNSELLORS.length;
     },
 });
