@@ -190,6 +190,7 @@ The call speaks as soon as the first sentence is complete instead of waiting for
 | `SILK_BASE_URL` | `.env.local`, Vercel | no | Default `https://silk-api.rumik.ai`; also feeds the CSP |
 | `SILK_MODEL` | `.env.local`, Vercel | no | `muga` (default) or `mulberry` for female personas |
 | `SITE_URL` (or `BETTER_AUTH_URL`) | Convex | yes | App origin for Better Auth |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Convex | no | Extra comma-separated origins Better Auth accepts, for example both domains while moving to a custom domain |
 | `BETTER_AUTH_SECRET` | Convex | yes | Session signing secret |
 | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | Convex | for chat | Gemini |
 | `GOOGLE_CHAT_MODEL` | Convex | no | Default `gemini-3.5-flash` (2.5 Flash returns 404 for newer API projects). Thinking is turned off so it cannot eat the 360-token reply budget |
@@ -211,3 +212,27 @@ The call speaks as soon as the first sentence is complete instead of waiting for
 | Dev backend | Convex dev deployment `wry-wolverine-89` | `pnpm dev` / `pnpm dev:convex` push on save; `pnpm seed` seeds it. |
 
 Ship backend changes before or together with the web change that depends on them: deploy Convex first, then push to `main`.
+
+### Moving to a custom domain
+
+The steps below use `kosmo.example` for the new domain. Only two values change: the web origin on Vercel and the auth origin on Convex. The Convex URLs, the speech keys and the CSP stay as they are.
+
+1. **Add the domain in Vercel.** Project `kosmo` → Settings → Domains → add `kosmo.example` (and `www.kosmo.example` if you want it redirected). Create the DNS records Vercel shows (an `A` record to Vercel's IP for the apex, or a `CNAME` to `cname.vercel-dns.com` for a subdomain) and wait until the domain shows a valid certificate.
+2. **Trust both origins during the switch (Convex, production).** Better Auth only accepts requests whose origin is its base URL. To keep `https://kosmo-ai.vercel.app` working while DNS settles, add the new origin as an extra trusted origin first:
+   `npx convex env set BETTER_AUTH_TRUSTED_ORIGINS "https://kosmo.example,https://kosmo-ai.vercel.app" --prod`
+   Better Auth reads this comma-separated list itself; no code change is needed.
+3. **Point auth at the new origin (Convex, production).**
+   `npx convex env set SITE_URL https://kosmo.example --prod`
+   `convex/auth.ts` uses `BETTER_AUTH_URL` before `SITE_URL`, so if `BETTER_AUTH_URL` is set on the deployment, change (or unset) it too. Convex env changes take effect immediately; no `npx convex deploy` is needed.
+4. **Point the site at the new origin (Vercel, Production environment).** Set `NEXT_PUBLIC_SITE_URL=https://kosmo.example` (no trailing slash). It is inlined at build time into canonical URLs, Open Graph tags, JSON-LD, `robots.txt` and `sitemap.xml`, which are all prerendered, so **redeploy**: Deployments → latest production deployment → Redeploy (without the build cache), or push any commit to `main`.
+5. **Make the new domain primary.** In Vercel → Domains, set `kosmo-ai.vercel.app` to redirect (308) to `kosmo.example`, so old links and search results land on the new origin.
+6. **Clean up.** Once the old domain only redirects, drop it from `BETTER_AUTH_TRUSTED_ORIGINS` (or unset the variable). Session cookies belong to the old domain, so signed-in users sign in once more on the new one.
+7. **Search.** Add the new domain in Google Search Console and submit `https://kosmo.example/sitemap.xml`.
+
+What does not change:
+
+- **CSP** (`next.config.ts`): the app's own origin is covered by `'self'`, and `connect-src` lists Convex, Deepgram and Rumik, none of which move. Only if Convex itself moves to a custom domain do `NEXT_PUBLIC_CONVEX_URL` / `NEXT_PUBLIC_CONVEX_SITE_URL` change on Vercel; the CSP is built from them, so the same redeploy picks that up.
+- **Auth routes**: the browser talks to `/api/auth/*` on the site itself, which proxies to Convex, so the session cookie stays first-party on whatever domain serves the app.
+- **Deepgram and Rumik**: keys stay on the server and neither service restricts by domain.
+
+Check afterwards: sign up and sign in on the new domain, open `/robots.txt` and `/sitemap.xml` and confirm they list `https://kosmo.example`, view a page's source for the canonical URL, and confirm `https://kosmo-ai.vercel.app` redirects.
