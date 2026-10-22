@@ -56,6 +56,10 @@ export default defineSchema({
         role: v.union(v.literal("user"), v.literal("bot")),
         text: v.string(),
         ts: v.number(),
+        // Set while a bot reply is still being generated; the call screen speaks it sentence by sentence.
+        streaming: v.optional(v.boolean()),
+        // Chosen by the client for each turn so it can follow exactly the reply it asked for.
+        turnKey: v.optional(v.string()),
     }).index("by_callId_ts", ["callId", "ts"]),
 
     chatMessages: defineTable({
@@ -64,5 +68,7 @@ export default defineSchema({
         role: v.union(v.literal("user"), v.literal("assistant")),
         content: v.string(),
         createdAt: v.number(),
+        // Set while an assistant reply is still being generated; content grows until it is cleared.
+        streaming: v.optional(v.boolean()),
     }).index("by_userKey_and_counsellorSlug_and_createdAt", ["userKey", "counsellorSlug", "createdAt"]),
 });

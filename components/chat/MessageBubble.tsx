@@ -74,7 +74,7 @@ export function MessageBubble({
                             </time>
                             {mine && <Check className="size-3.5" aria-label="Sent" />}
                             {/* Audio is opt-in: synthesised only when this button (or the header toggle) asks for it. */}
-                            {!mine && message.kind === "text" && (
+                            {!mine && message.kind === "text" && !message.streaming && (
                                 <button
                                     type="button"
                                     onClick={onTogglePlay}

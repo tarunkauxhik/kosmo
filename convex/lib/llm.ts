@@ -2,13 +2,46 @@ import { ConvexError } from "convex/values";
 
 export type LlmMessage = { role: "user" | "assistant"; content: string };
 
+// Receives the reply generated so far (not just the newest piece) each time it grows.
+export type OnText = (textSoFar: string) => Promise<void> | void;
+
 function env(name: string) {
     const value = process.env[name];
     return value && value.trim() ? value.trim() : undefined;
 }
 
-// Text chat: Google Gemini over REST (no SDK needed in the Convex runtime).
-export async function geminiReply(system: string, history: LlmMessage[]): Promise<string> {
+// Yields the payload of each `data:` line of a Server-Sent Events response.
+async function* sseData(res: Response): AsyncGenerator<string> {
+    if (!res.body) return;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newline: number;
+        while ((newline = buffer.indexOf("\n")) >= 0) {
+            const line = buffer.slice(0, newline).trim();
+            buffer = buffer.slice(newline + 1);
+            if (line.startsWith("data:")) yield line.slice(5).trim();
+        }
+    }
+}
+
+// Passes the growing text to `write` at most once per `ms`, so a streamed reply reaches the
+// database in a handful of mutations rather than one per token. The caller writes the final text itself.
+export function throttledWriter(ms: number, write: (text: string) => Promise<unknown>): OnText {
+    let lastAt = 0;
+    return async (text) => {
+        if (Date.now() - lastAt < ms) return;
+        lastAt = Date.now();
+        await write(text);
+    };
+}
+
+// Text chat: Google Gemini over REST (no SDK needed in the Convex runtime), streamed.
+export async function geminiReply(system: string, history: LlmMessage[], onText: OnText): Promise<string> {
     const apiKey = env("GEMINI_API_KEY") ?? env("GOOGLE_API_KEY");
     if (!apiKey) throw new ConvexError("GEMINI_API_KEY is not set on the Convex deployment.");
     // gemini-2.5-flash returns 404 for newer API projects.
@@ -22,7 +55,7 @@ export async function geminiReply(system: string, history: LlmMessage[]): Promis
     }));
 
     const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
         {
             method: "POST",
             headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
@@ -43,19 +76,22 @@ export async function geminiReply(system: string, history: LlmMessage[]): Promis
         console.error("Gemini request failed", res.status, (await res.text()).slice(0, 300));
         throw new ConvexError(`Unable to generate a reply right now (model error ${res.status}).`);
     }
-    const data = (await res.json()) as {
-        candidates?: { content?: { parts?: { text?: string }[] } }[];
-    };
-    const text = (data.candidates?.[0]?.content?.parts ?? [])
-        .map((p) => p.text ?? "")
-        .join("")
-        .trim();
+
+    let text = "";
+    for await (const data of sseData(res)) {
+        const chunk = JSON.parse(data) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+        const piece = (chunk.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
+        if (!piece) continue;
+        text += piece;
+        await onText(text.trimStart());
+    }
+    text = text.trim();
     if (!text) throw new ConvexError("The model returned an empty response.");
     return text;
 }
 
-// Voice calls: OpenRouter chat completions (OpenAI-compatible).
-export async function openRouterReply(system: string, history: LlmMessage[]): Promise<string> {
+// Voice calls: OpenRouter chat completions (OpenAI-compatible), streamed.
+export async function openRouterReply(system: string, history: LlmMessage[], onText: OnText): Promise<string> {
     const apiKey = env("OPENROUTER_API_KEY");
     if (!apiKey) throw new ConvexError("OPENROUTER_API_KEY is not set on the Convex deployment.");
     const model = env("OPENROUTER_MODEL") ?? "google/gemini-3.1-flash-lite-preview";
@@ -68,14 +104,24 @@ export async function openRouterReply(system: string, history: LlmMessage[]): Pr
             messages: [{ role: "system", content: system }, ...history],
             temperature: 0.7,
             max_tokens: 256,
+            stream: true,
         }),
     });
     if (!res.ok) {
         console.error("OpenRouter request failed", res.status, (await res.text()).slice(0, 300));
         throw new ConvexError("Unable to generate a reply right now.");
     }
-    const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const reply = data.choices?.[0]?.message?.content?.trim() ?? "";
-    if (!reply) throw new ConvexError("The model returned an empty response.");
-    return reply;
+
+    let text = "";
+    for await (const data of sseData(res)) {
+        if (data === "[DONE]") break;
+        const chunk = JSON.parse(data) as { choices?: { delta?: { content?: string } }[] };
+        const piece = chunk.choices?.[0]?.delta?.content ?? "";
+        if (!piece) continue;
+        text += piece;
+        await onText(text.trimStart());
+    }
+    text = text.trim();
+    if (!text) throw new ConvexError("The model returned an empty response.");
+    return text;
 }

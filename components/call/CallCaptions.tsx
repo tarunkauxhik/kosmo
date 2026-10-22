@@ -5,8 +5,8 @@ import { ThinkingOrb } from "thinking-orbs";
 import type { CallActivity } from "@/hooks/useVoiceCall";
 import { cn } from "@/lib/utils";
 
-// Live transcript of the current exchange. It fills the space it is given and scrolls, so a long
-// reply is shown in full instead of being clipped while the audio keeps playing.
+// Live transcript of the current exchange. The reply grows sentence by sentence as it is spoken, and the
+// area scrolls to keep the newest line in view, so a long reply is never clipped.
 export function CallCaptions({
     user,
     assistant,
@@ -21,27 +21,17 @@ export function CallCaptions({
     className?: string;
 }) {
     const boxRef = useRef<HTMLDivElement>(null);
-    const replyRef = useRef<HTMLParagraphElement>(null);
     const thinking = activity === "thinking";
 
-    // Follow the caller's words as they come in, and the thinking line when it appears.
     useEffect(() => {
         const box = boxRef.current;
-        if (box) box.scrollTo({ top: box.scrollHeight });
-    }, [user, thinking]);
-
-    // A new reply scrolls into view from its first line; scrollTo clamps, so a short one sits at the bottom.
-    useEffect(() => {
-        const box = boxRef.current;
-        const reply = replyRef.current;
-        if (!box || !reply || thinking) return;
-        box.scrollTo({ top: reply.offsetTop - 8, behavior: "smooth" });
-    }, [assistant, thinking]);
+        if (box) box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
+    }, [user, assistant, thinking]);
 
     return (
         <div
             ref={boxRef}
-            className={cn("relative w-full overflow-y-auto overscroll-contain text-left", className)}
+            className={cn("w-full overflow-y-auto overscroll-contain text-left", className)}
             aria-live="polite"
         >
             <div className="flex min-h-full flex-col justify-end space-y-3 py-2">
@@ -58,7 +48,7 @@ export function CallCaptions({
                     </p>
                 ) : (
                     assistant && (
-                        <p ref={replyRef} className="max-w-[92%] py-1 text-[0.9375rem] leading-relaxed">
+                        <p className="max-w-[92%] py-1 text-[0.9375rem] leading-relaxed">
                             <span className="sr-only">{counsellorFirstName}: </span>
                             {assistant}
                         </p>

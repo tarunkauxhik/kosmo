@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { action, internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
-import { openRouterReply, type LlmMessage } from "./lib/llm";
+import { openRouterReply, throttledWriter, type LlmMessage } from "./lib/llm";
 import { voiceKickoff, voiceSystemPrompt } from "./lib/prompts";
 import { rateLimiter } from "./lib/rateLimits";
 import { getUserByAuthId, promptProfile, requireUser } from "./lib/users";
@@ -120,25 +120,72 @@ export const beginTurn = internalMutation({
             .take(HISTORY_LIMIT);
         const turns: LlmMessage[] = recent
             .reverse()
+            .filter((t) => t.text)
             .map((t) => ({ role: t.role === "bot" ? "assistant" : "user", content: t.text }));
 
         return { counsellor, profile: promptProfile(user), turns };
     },
 });
 
-export const saveBotTurn = internalMutation({
-    args: { callId: v.id("calls"), text: v.string() },
-    handler: async (ctx, { callId, text }) => {
-        await ctx.db.insert("callTurns", { callId, role: "bot", text: text.slice(0, 4000), ts: Date.now() });
+// The bot turn is created empty and filled in as the model streams; the call screen follows it
+// through `liveReply` and starts speaking at the first complete sentence.
+export const startBotTurn = internalMutation({
+    args: { callId: v.id("calls"), turnKey: v.optional(v.string()) },
+    handler: async (ctx, { callId, turnKey }) => {
+        return await ctx.db.insert("callTurns", {
+            callId,
+            role: "bot",
+            text: "",
+            ts: Date.now(),
+            streaming: true,
+            turnKey,
+        });
+    },
+});
+
+export const updateBotTurn = internalMutation({
+    args: { turnId: v.id("callTurns"), text: v.string(), done: v.boolean() },
+    handler: async (ctx, { turnId, text, done }) => {
+        await ctx.db.patch(turnId, { text: text.slice(0, 4000), streaming: done ? undefined : true });
         return null;
+    },
+});
+
+export const discardBotTurn = internalMutation({
+    args: { turnId: v.id("callTurns") },
+    handler: async (ctx, { turnId }) => {
+        await ctx.db.delete(turnId);
+        return null;
+    },
+});
+
+// The reply for one turn of the caller's own call, while it streams and after.
+export const liveReply = query({
+    args: { callId: v.id("calls"), turnKey: v.string() },
+    handler: async (ctx, { callId, turnKey }) => {
+        const user = await requireUser(ctx);
+        const call = await ctx.db.get(callId);
+        if (!call || call.userId !== user._id) return null;
+        const recent = await ctx.db
+            .query("callTurns")
+            .withIndex("by_callId_ts", (q) => q.eq("callId", callId))
+            .order("desc")
+            .take(10);
+        const turn = recent.find((t) => t.role === "bot" && t.turnKey === turnKey);
+        return turn ? { text: turn.text, streaming: turn.streaming === true } : null;
     },
 });
 
 // One conversational turn of a voice call. `kickoff` asks the persona to greet
 // the caller first; the instruction itself is never stored in the transcript.
 export const respond = action({
-    args: { callId: v.id("calls"), text: v.optional(v.string()), kickoff: v.optional(v.boolean()) },
-    handler: async (ctx, { callId, text, kickoff }): Promise<{ reply: string }> => {
+    args: {
+        callId: v.id("calls"),
+        text: v.optional(v.string()),
+        kickoff: v.optional(v.boolean()),
+        turnKey: v.optional(v.string()),
+    },
+    handler: async (ctx, { callId, text, kickoff, turnKey }): Promise<{ reply: string }> => {
         const identity = await ctx.auth.getUserIdentity();
         if (!identity) throw new ConvexError("Unauthorized");
 
@@ -152,9 +199,19 @@ export const respond = action({
         });
 
         const history: LlmMessage[] = [{ role: "user", content: voiceKickoff(turn.profile) }, ...turn.turns];
-        const reply = await openRouterReply(voiceSystemPrompt(turn.counsellor, turn.profile), history);
-
-        await ctx.runMutation(internal.calls.saveBotTurn, { callId, text: reply });
+        const turnId = await ctx.runMutation(internal.calls.startBotTurn, { callId, turnKey: turnKey?.slice(0, 64) });
+        // Short interval: the call screen waits for the first full sentence before it can speak.
+        const onText = throttledWriter(60, (partial) =>
+            ctx.runMutation(internal.calls.updateBotTurn, { turnId, text: partial, done: false }),
+        );
+        let reply: string;
+        try {
+            reply = await openRouterReply(voiceSystemPrompt(turn.counsellor, turn.profile), history, onText);
+        } catch (error) {
+            await ctx.runMutation(internal.calls.discardBotTurn, { turnId });
+            throw error;
+        }
+        await ctx.runMutation(internal.calls.updateBotTurn, { turnId, text: reply, done: true });
         return { reply };
     },
 });

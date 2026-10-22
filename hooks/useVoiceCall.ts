@@ -3,11 +3,12 @@
 // Direct-to-provider voice call:
 //   mic → ScriptProcessor (PCM16) → Deepgram Flux websocket (STT, Hindi + English),
 //     authenticated with a short-lived token from /api/voice/deepgram-token
-//   on end of turn → Convex action calls.respond (persona + history live server-side)
-//   reply text → /api/voice/silk-mint → Rumik SILK websocket → Web Audio playback
+//   on end of turn → Convex action calls.respond (persona + history live server-side), which streams
+//     the reply into a bot turn this hook follows through the calls.liveReply query
+//   each complete sentence → /api/voice/silk-mint → Rumik SILK websocket → Web Audio, played in order
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
@@ -37,6 +38,9 @@ export function useVoiceCall(counsellorSlug: string) {
     });
     const [muted, setMuted] = useState(false);
     const [startedAt, setStartedAt] = useState<number | null>(null);
+    // The turn whose streamed reply is being followed.
+    const [live, setLive] = useState<{ callId: Id<"calls">; turnKey: string } | null>(null);
+    const liveReply = useQuery(api.calls.liveReply, live ?? "skip");
 
     const startCall = useMutation(api.calls.start);
     const respond = useAction(api.calls.respond);
@@ -58,9 +62,18 @@ export function useVoiceCall(counsellorSlug: string) {
     const ttsSourcesRef = useRef<AudioBufferSourceNode[]>([]);
     const playAtRef = useRef(0);
     const ttsGenRef = useRef(0);
+    // How much of the current turn's reply has been handed to TTS, and whether the reply is complete.
+    const feedRef = useRef<{ key: string; consumed: number; done: boolean } | null>(null);
+    // Reply pieces play strictly in order: each waits for the previous one's audio to be scheduled.
+    const queueRef = useRef<Promise<void>>(Promise.resolve());
+    const pendingRef = useRef(0);
 
+    // Stops speech and drops whatever is left of the current reply (barge-in, new turn, hang-up).
     const stopPlayback = useCallback(() => {
         ttsGenRef.current += 1;
+        feedRef.current = null;
+        queueRef.current = Promise.resolve();
+        pendingRef.current = 0;
         if (ttsWsRef.current?.readyState === WebSocket.OPEN) {
             try {
                 ttsWsRef.current.close();
@@ -77,24 +90,51 @@ export function useVoiceCall(counsellorSlug: string) {
         setActivity((a) => (a === "speaking" ? "listening" : a));
     }, []);
 
-    const speak = useCallback(
-        async (text: string) => {
-            stopPlayback();
-            const myGen = ttsGenRef.current + 1;
-            ttsGenRef.current = myGen;
+    // Back to listening once the reply is complete and every piece has finished playing.
+    const settleIfDone = useCallback(() => {
+        const feed = feedRef.current;
+        if (ttsSourcesRef.current.length || pendingRef.current || (feed && !feed.done)) return;
+        setActivity("listening");
+    }, []);
 
-            const mintRes = await fetch("/api/voice/silk-mint", {
+    const appendCaption = useCallback((text: string) => {
+        setCaptions((c) => ({ ...c, assistant: c.assistant ? `${c.assistant} ${text}` : text }));
+    }, []);
+
+    const mintSpeech = useCallback(
+        async (text: string) => {
+            const res = await fetch("/api/voice/silk-mint", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ text, counsellorSlug }),
             });
-            if (!mintRes.ok) {
-                console.error("silk-mint failed", await mintRes.text());
-                setActivity("listening");
+            if (!res.ok) {
+                console.error("silk-mint failed", res.status);
+                return null;
+            }
+            return (await res.json()) as {
+                ws_url: string;
+                token: string;
+                model: string;
+                tone: string | null;
+                description: string | null;
+            };
+        },
+        [counsellorSlug],
+    );
+
+    // Streams one piece of the reply into the audio timeline. Resolves once all of its audio has
+    // arrived (it may still be playing), so the next piece is scheduled right after it.
+    const playPiece = useCallback(
+        async (text: string, minted: ReturnType<typeof mintSpeech>, gen: number) => {
+            const session = await minted.catch(() => null);
+            if (gen !== ttsGenRef.current) return;
+            if (!session) {
+                // No voice for this piece: still show the words.
+                appendCaption(text);
+                setActivity((a) => (a === "thinking" ? "listening" : a));
                 return;
             }
-            const { ws_url, token, model, tone, description } = await mintRes.json();
-            if (myGen !== ttsGenRef.current) return; // interrupted while minting
 
             const ctx = audioCtxRef.current ?? new AudioContext({ sampleRate: 24000 });
             audioCtxRef.current = ctx;
@@ -102,69 +142,122 @@ export function useVoiceCall(counsellorSlug: string) {
             if (playAtRef.current < ctx.currentTime) playAtRef.current = ctx.currentTime;
 
             // muga expects a [tone] prefix; mulberry uses the description field instead
-            const isMuga = model === "muga";
-            const synthesisText = isMuga
-                ? text.trimStart().startsWith("[")
-                    ? text
-                    : `[${tone || "neutral"}] ${text}`
-                : text;
+            const isMuga = session.model === "muga";
+            const synthesisText =
+                isMuga && !text.trimStart().startsWith("[") ? `[${session.tone || "neutral"}] ${text}` : text;
 
-            const ws = new WebSocket(`${ws_url}?token=${encodeURIComponent(token)}`);
-            ws.binaryType = "arraybuffer";
-            ttsWsRef.current = ws;
+            await new Promise<void>((resolve) => {
+                const ws = new WebSocket(`${session.ws_url}?token=${encodeURIComponent(session.token)}`);
+                ws.binaryType = "arraybuffer";
+                ttsWsRef.current = ws;
+                let captioned = false;
 
-            ws.onopen = () => {
-                if (myGen !== ttsGenRef.current) {
-                    try {
-                        ws.close();
-                    } catch {}
-                    return;
-                }
-                const frame: Record<string, unknown> = { text: synthesisText };
-                if (!isMuga && description) frame.description = description;
-                ws.send(JSON.stringify(frame));
-            };
+                ws.onopen = () => {
+                    if (gen !== ttsGenRef.current) return ws.close();
+                    const frame: Record<string, unknown> = { text: synthesisText };
+                    if (!isMuga && session.description) frame.description = session.description;
+                    ws.send(JSON.stringify(frame));
+                };
 
-            ws.onmessage = (e) => {
-                if (myGen !== ttsGenRef.current) {
-                    try {
-                        ws.close();
-                    } catch {}
-                    return;
-                }
-                if (e.data instanceof ArrayBuffer) {
-                    const pcm = new Int16Array(e.data);
-                    if (!pcm.length) return;
-                    const buf = ctx.createBuffer(1, pcm.length, 24000);
-                    const ch = buf.getChannelData(0);
-                    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768;
-                    const src = ctx.createBufferSource();
-                    src.buffer = buf;
-                    src.connect(ctx.destination);
-                    playAtRef.current = Math.max(playAtRef.current, ctx.currentTime);
-                    src.start(playAtRef.current);
-                    playAtRef.current += buf.duration;
-                    ttsSourcesRef.current.push(src);
-                    setActivity("speaking");
-                    src.onended = () => {
-                        ttsSourcesRef.current = ttsSourcesRef.current.filter((x) => x !== src);
-                        if (!ttsSourcesRef.current.length && myGen === ttsGenRef.current) setActivity("listening");
-                    };
-                } else {
-                    try {
-                        const data = JSON.parse(e.data);
-                        if (data?.type === "done" || data?.error) ws.close();
-                    } catch {}
-                }
-            };
+                ws.onmessage = (e) => {
+                    if (gen !== ttsGenRef.current) return ws.close();
+                    if (e.data instanceof ArrayBuffer) {
+                        const pcm = new Int16Array(e.data);
+                        if (!pcm.length) return;
+                        const buf = ctx.createBuffer(1, pcm.length, 24000);
+                        const ch = buf.getChannelData(0);
+                        for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 32768;
+                        const src = ctx.createBufferSource();
+                        src.buffer = buf;
+                        src.connect(ctx.destination);
+                        const startAt = Math.max(playAtRef.current, ctx.currentTime);
+                        src.start(startAt);
+                        playAtRef.current = startAt + buf.duration;
+                        ttsSourcesRef.current.push(src);
+                        if (!captioned) {
+                            // Show this piece's words when its audio starts playing, not when it is queued.
+                            captioned = true;
+                            setTimeout(
+                                () => {
+                                    if (gen !== ttsGenRef.current) return;
+                                    appendCaption(text);
+                                    setActivity("speaking");
+                                },
+                                Math.max(0, (startAt - ctx.currentTime) * 1000),
+                            );
+                        }
+                        src.onended = () => {
+                            ttsSourcesRef.current = ttsSourcesRef.current.filter((x) => x !== src);
+                            if (gen === ttsGenRef.current) settleIfDone();
+                        };
+                    } else {
+                        try {
+                            const data = JSON.parse(e.data);
+                            if (data?.type === "done" || data?.error) ws.close();
+                        } catch {}
+                    }
+                };
 
-            ws.onerror = (err) => console.error("SILK ws error", err);
-            ws.onclose = () => {
-                if (ttsWsRef.current === ws) ttsWsRef.current = null;
-            };
+                ws.onerror = (err) => console.error("SILK ws error", err);
+                ws.onclose = () => {
+                    if (ttsWsRef.current === ws) ttsWsRef.current = null;
+                    // Synthesis produced no audio: still show the words.
+                    if (!captioned && gen === ttsGenRef.current) appendCaption(text);
+                    resolve();
+                };
+            });
         },
-        [stopPlayback, counsellorSlug],
+        [appendCaption, settleIfDone],
     );
+
+    // Queues a piece of the reply. Minting starts at once, so it overlaps with earlier pieces playing.
+    const enqueueSpeech = useCallback(
+        (text: string) => {
+            const gen = ttsGenRef.current;
+            const minted = mintSpeech(text);
+            pendingRef.current += 1;
+            queueRef.current = queueRef.current
+                .then(() => (gen === ttsGenRef.current ? playPiece(text, minted, gen) : undefined))
+                .finally(() => {
+                    if (gen !== ttsGenRef.current) return;
+                    pendingRef.current -= 1;
+                    settleIfDone();
+                });
+        },
+        [mintSpeech, playPiece, settleIfDone],
+    );
+
+    // Hands newly completed sentences of the streaming reply to TTS, and the rest once it is final.
+    const feedReply = useCallback(
+        (turnKey: string, text: string, final: boolean) => {
+            const feed = feedRef.current;
+            if (!feed || feed.key !== turnKey || feed.done) return;
+            const rest = text.slice(feed.consumed);
+            let end = 0;
+            if (final) {
+                end = rest.length;
+            } else {
+                const boundary = /[.!?।]+["'”’)]*\s+/g;
+                for (let m = boundary.exec(rest); m; m = boundary.exec(rest)) {
+                    // "Pt. Devrajit" or "Dr. Rao" is not the end of a sentence.
+                    if (/(^|\s)[A-Z][a-z]{0,3}\.$/.test(rest.slice(0, m.index + 1))) continue;
+                    end = m.index + m[0].length;
+                }
+                // Very short pieces sound choppy and each costs a TTS session; wait for more text.
+                if (rest.slice(0, end).trim().length < 20) end = 0;
+            }
+            const piece = rest.slice(0, end).trim();
+            feed.consumed += end;
+            if (final) feed.done = true;
+            if (piece) enqueueSpeech(piece);
+            else if (final) settleIfDone();
+        },
+        [enqueueSpeech, settleIfDone],
+    );
+
+    useEffect(() => {
+        if (live && liveReply) feedReply(live.turnKey, liveReply.text, !liveReply.streaming);
+    }, [live, liveReply, feedReply]);
 
     const ensureCallStarted = useCallback(async (): Promise<Id<"calls">> => {
         if (callIdRef.current) return callIdRef.current;
@@ -182,8 +275,8 @@ export function useVoiceCall(counsellorSlug: string) {
         return callIdPromiseRef.current;
     }, [startCall, counsellorSlug]);
 
-    // One turn: send the caller's words (or the kickoff) to Convex, then speak the reply.
-    // A newer turn supersedes an older one, so stale replies are dropped, not spoken.
+    // One turn: send the caller's words (or the kickoff) to Convex and speak the reply as it streams.
+    // A newer turn supersedes an older one, so a stale reply is never spoken.
     const handleUserTurn = useCallback(
         async (userText: string | null) => {
             const trimmed = userText?.trim() ?? "";
@@ -191,19 +284,25 @@ export function useVoiceCall(counsellorSlug: string) {
             if (!kickoff && !trimmed) return;
 
             const myTurn = ++turnGenRef.current;
+            const turnKey = crypto.randomUUID();
+            stopPlayback();
+            feedRef.current = { key: turnKey, consumed: 0, done: false };
             setCaptions((c) => ({ user: kickoff ? c.user : trimmed, assistant: null }));
             setActivity("thinking");
 
             try {
                 const callId = await ensureCallStarted();
-                const { reply } = await respond(kickoff ? { callId, kickoff: true } : { callId, text: trimmed });
                 if (myTurn !== turnGenRef.current) return;
-                if (!reply) return setActivity("listening");
-                setCaptions((c) => ({ ...c, assistant: reply }));
-                await speak(reply);
+                setLive({ callId, turnKey });
+                const { reply } = await respond(
+                    kickoff ? { callId, kickoff: true, turnKey } : { callId, text: trimmed, turnKey },
+                );
+                // The live query normally delivers the reply first; this covers a missed update.
+                if (myTurn === turnGenRef.current) feedReply(turnKey, reply, true);
             } catch (e) {
                 if (myTurn !== turnGenRef.current) return;
                 console.error("[voice] turn failed", e);
+                feedRef.current = null;
                 setActivity("listening");
                 const limited = (e as { data?: { kind?: string } })?.data?.kind === "RateLimited";
                 setCaptions((c) => ({
@@ -214,7 +313,7 @@ export function useVoiceCall(counsellorSlug: string) {
                 }));
             }
         },
-        [ensureCallStarted, respond, speak],
+        [ensureCallStarted, respond, stopPlayback, feedReply],
     );
 
     useEffect(() => {

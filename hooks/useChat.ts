@@ -13,6 +13,8 @@ export type ChatMessage = {
     createdAt: number;
     kind: "text" | "voice";
     status?: "sending" | "failed";
+    // The reply is still being written; its content grows as the model streams.
+    streaming?: boolean;
     // Assistant replies that arrived while this screen was open animate in.
     fresh?: boolean;
 };
@@ -50,15 +52,19 @@ export function useChat({
     const [error, setError] = useState<string | null>(null);
 
     const messages = useMemo<ChatMessage[]>(() => {
-        const saved: ChatMessage[] = (session?.messages ?? []).map((m) => ({
-            id: m._id,
-            role: m.role,
-            content: m.content,
-            createdAt: m.createdAt,
-            // Replies are always text (with an optional read-aloud button); only your own recordings are voice notes.
-            kind: voiceIds.has(m._id) ? "voice" : "text",
-            fresh: m.role === "assistant" && m.createdAt > openedAt,
-        }));
+        // An assistant message starts empty and fills in as it streams; show it once it has text.
+        const saved: ChatMessage[] = (session?.messages ?? [])
+            .filter((m) => m.content)
+            .map((m) => ({
+                id: m._id,
+                role: m.role,
+                content: m.content,
+                createdAt: m.createdAt,
+                // Replies are always text (with an optional read-aloud button); only your own recordings are voice notes.
+                kind: voiceIds.has(m._id) ? "voice" : "text",
+                fresh: m.role === "assistant" && m.createdAt > openedAt,
+                streaming: m.streaming === true,
+            }));
         // The greeting is never stored; it always opens the thread.
         const greeting: ChatMessage = {
             id: `intro-${slug}`,
@@ -121,11 +127,14 @@ export function useChat({
     const discard = useCallback((id: string) => setPending((p) => p.filter((m) => m.id !== id)), []);
 
     const hasUserMessages = messages.some((m) => m.role === "user");
+    const replyStreaming = messages.some((m) => m.streaming);
 
     return {
         loading: session === undefined,
         messages,
-        thinking,
+        // `busy` lasts until the reply is complete; `thinking` only until its first words appear.
+        busy: thinking,
+        thinking: thinking && !replyStreaming,
         error,
         clearError: () => setError(null),
         send,

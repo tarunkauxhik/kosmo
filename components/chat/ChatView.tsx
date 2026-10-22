@@ -29,13 +29,15 @@ export function ChatView({ counsellor, displayName }: { counsellor: ChatCounsell
     const first = firstName(counsellor.name);
 
     // Keep the newest message in view, unless the reader has scrolled up.
+    // A streaming reply grows in place, so its length counts as a change too.
     const count = chat.messages.length;
+    const tailLength = chat.messages.at(-1)?.content.length ?? 0;
     useEffect(() => {
         const el = listRef.current;
         if (!el) return;
         const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 240;
         if (nearBottom || chat.thinking) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-    }, [count, chat.thinking, chat.loading]);
+    }, [count, tailLength, chat.thinking, chat.loading]);
 
     async function play(id: string, text: string) {
         try {
@@ -124,7 +126,7 @@ export function ChatView({ counsellor, displayName }: { counsellor: ChatCounsell
                                     size="sm"
                                     className="shrink-0 rounded-full font-normal"
                                     onClick={() => send(s)}
-                                    disabled={chat.thinking}
+                                    disabled={chat.busy}
                                 >
                                     {s}
                                 </Button>
@@ -150,7 +152,7 @@ export function ChatView({ counsellor, displayName }: { counsellor: ChatCounsell
                     )}
                     <Composer
                         counsellorFirstName={first}
-                        busy={chat.thinking}
+                        busy={chat.busy}
                         recording={recorder.isRecording}
                         transcribing={transcribing}
                         elapsed={recorder.elapsed}

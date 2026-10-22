@@ -96,8 +96,8 @@ Source of truth: `convex/schema.ts`. Better Auth keeps its own user, session and
 | --- | --- | --- |
 | `counsellors` | `list`, `getBySlug` (signed in only) | `seed` |
 | `user` | `ensureUser`, `getProfile`, `saveProfile`, `generateProfileUploadUrl` | |
-| `chat` | `getSession`, `listSessions`, `send` (action) | `beginTurn`, `saveReply` |
-| `calls` | `start`, `end`, `listMine`, `getMine`, `respond` (action) | `beginTurn`, `saveBotTurn` |
+| `chat` | `getSession`, `listSessions`, `send` (action) | `beginTurn`, `startReply`, `updateReply`, `discardReply` |
+| `calls` | `start`, `end`, `listMine`, `getMine`, `liveReply`, `respond` (action) | `beginTurn`, `startBotTurn`, `updateBotTurn`, `discardBotTurn` |
 | `limits` | `consume` (used by Next.js API routes) | |
 | `auth` | `getCurrentUser` | |
 
@@ -124,11 +124,18 @@ sequenceDiagram
   participant G as Gemini
   B->>C: send(counsellorSlug, content)
   C->>C: beginTurn: rate limit, store user message, load persona + profile + last 12 messages
-  C->>G: system prompt + history
-  G-->>C: reply text
-  C->>C: saveReply (internal)
-  C-->>B: ids + text (the live getSession query also updates)
+  C->>C: startReply: empty assistant message, streaming: true
+  C->>G: system prompt + history (streamGenerateContent, SSE)
+  loop as tokens arrive (at most every 100 ms)
+    G-->>C: text delta
+    C->>C: updateReply (internal)
+    C-->>B: live getSession query shows the reply growing
+  end
+  C->>C: updateReply(done): streaming cleared
+  C-->>B: ids + full text
 ```
+
+Replies stream: the action creates an empty assistant message and patches it as Gemini's server-sent events arrive, so the chat shows the reply as it is written. If generation fails the empty message is deleted. Only the action (through internal mutations) writes assistant messages.
 
 Voice notes: the browser records with MediaRecorder, posts the audio to `/api/voice/transcribe` (Deepgram, pre-recorded) and sends the transcript through `chat.send`. Assistant replies are always shown as text; each has a small read-aloud button, and the header speaker toggle (off by default) plays new replies automatically. Audio is synthesised only on request, by `/api/tts`.
 
@@ -146,17 +153,22 @@ sequenceDiagram
   N-->>B: 30 s token
   B->>D: websocket, PCM16 mic audio
   D-->>B: EndOfTurn + transcript
-  B->>C: calls.respond(callId, text)
-  C->>C: beginTurn, build prompt, OpenRouter reply, saveBotTurn
-  C-->>B: reply text
-  B->>N: POST /api/voice/silk-mint
-  N-->>B: one-shot ws_url
-  B->>R: stream reply audio, play via Web Audio
-  Note over B: speaking over the reply stops playback (barge-in)
+  B->>C: calls.respond(callId, text, turnKey)
+  C->>C: beginTurn, build prompt, startBotTurn (empty, streaming)
+  C->>C: stream OpenRouter, updateBotTurn every 60 ms
+  C-->>B: calls.liveReply(callId, turnKey) shows the reply growing
+  loop each batch of complete sentences
+    B->>N: POST /api/voice/silk-mint (starts at once, overlaps playback)
+    N-->>B: one-shot ws_url
+    B->>R: stream that piece's audio, queued after the previous piece
+  end
+  Note over B: captions add each piece when its audio starts; speaking over the reply stops it (barge-in)
   B->>C: calls.end
 ```
 
 The persona greets first: `calls.respond` with `kickoff: true` asks for a greeting that is not stored as a user turn.
+
+The call speaks as soon as the first sentence is complete instead of waiting for the whole reply. `useVoiceCall` cuts the streamed text at sentence ends (not after abbreviations like "Pt.", and not before 20 characters), mints a Rumik session per piece straight away, and plays the pieces strictly in order on one Web Audio timeline. The rest of the reply is sent when the bot turn is marked done.
 
 ## Security
 

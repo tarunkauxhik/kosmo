@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, query } from "./_generated/server";
-import { geminiReply, type LlmMessage } from "./lib/llm";
+import { geminiReply, throttledWriter, type LlmMessage } from "./lib/llm";
 import { chatSystemPrompt } from "./lib/prompts";
 import { rateLimiter } from "./lib/rateLimits";
 import { getUserByAuthId, promptProfile, requireIdentity } from "./lib/users";
@@ -53,6 +53,7 @@ export const listSessions = query({
         >();
 
         for (const m of recent) {
+            if (!m.content) continue; // a reply that has only just started streaming
             const existing = seen.get(m.counsellorSlug);
             if (existing) {
                 existing.messageCount += 1;
@@ -102,6 +103,7 @@ export const beginTurn = internalMutation({
 
         const history: LlmMessage[] = recent
             .reverse()
+            .filter((m) => m.content)
             .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
 
         const user = await getUserByAuthId(ctx, authId);
@@ -109,19 +111,37 @@ export const beginTurn = internalMutation({
     },
 });
 
-export const saveReply = internalMutation({
-    args: { userKey: v.string(), counsellorSlug: v.string(), content: v.string() },
+// The assistant message is created empty and filled in as the model streams.
+export const startReply = internalMutation({
+    args: { userKey: v.string(), counsellorSlug: v.string() },
     handler: async (ctx, args) => {
         return await ctx.db.insert("chatMessages", {
             ...args,
             role: "assistant",
-            content: args.content.slice(0, 4000),
+            content: "",
             createdAt: Date.now(),
+            streaming: true,
         });
     },
 });
 
-// Only this action writes assistant messages, so the browser can't forge them.
+export const updateReply = internalMutation({
+    args: { messageId: v.id("chatMessages"), content: v.string(), done: v.boolean() },
+    handler: async (ctx, { messageId, content, done }) => {
+        await ctx.db.patch(messageId, { content: content.slice(0, 4000), streaming: done ? undefined : true });
+        return null;
+    },
+});
+
+export const discardReply = internalMutation({
+    args: { messageId: v.id("chatMessages") },
+    handler: async (ctx, { messageId }) => {
+        await ctx.db.delete(messageId);
+        return null;
+    },
+});
+
+// Only this action (through internal mutations) writes assistant messages, so the browser can't forge them.
 export const send = action({
     args: { counsellorSlug: v.string(), content: v.string() },
     handler: async (
@@ -141,13 +161,22 @@ export const send = action({
             content: text,
         });
 
-        const reply = await geminiReply(chatSystemPrompt(turn.counsellor, turn.profile), turn.history);
-
-        const messageId = await ctx.runMutation(internal.chat.saveReply, {
+        // Stream the reply into the message so the chat shows it as it is written.
+        const messageId = await ctx.runMutation(internal.chat.startReply, {
             userKey: identity.tokenIdentifier,
             counsellorSlug,
-            content: reply,
         });
+        const onText = throttledWriter(100, (content) =>
+            ctx.runMutation(internal.chat.updateReply, { messageId, content, done: false }),
+        );
+        let reply: string;
+        try {
+            reply = await geminiReply(chatSystemPrompt(turn.counsellor, turn.profile), turn.history, onText);
+        } catch (error) {
+            await ctx.runMutation(internal.chat.discardReply, { messageId });
+            throw error;
+        }
+        await ctx.runMutation(internal.chat.updateReply, { messageId, content: reply, done: true });
         return { userMessageId: turn.userMessageId, messageId, text: reply };
     },
 });
