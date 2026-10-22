@@ -13,6 +13,8 @@
 9. **Repo cleanup.** One instruction file (`AGENTS.md`), Convex skills cut to the eight this app uses, stale docs fixed, profile photo ownership check, bounded transcript reads, Convex counsellor queries require sign-in.
 10. **Lighter portraits.** The 12 portrait PNGs (16.7 MB) became 640px WebP (337 KB in total), served through `next/image`. OG cards convert them back to PNG with sharp at build time because Satori can't read WebP.
 11. **Licensed emoji.** Switched from Apple's artwork to Microsoft Fluent Emoji 3D (MIT).
+12. **Unique portraits.** Every persona has its own AI-generated portrait (24 files, `public/portraits/<slug>.webp`). `pnpm generate:portraits` skips any slug whose file already exists.
+13. **Faster voice sessions.** `/api/voice/silk-mint` runs the session check, rate limit and persona lookup in parallel and fetches the session token once (median 1.9 s to 0.74 s on dev). The paid Rumik call still waits for the guard.
 
 ## Next (in priority order)
 
@@ -20,10 +22,9 @@
 2. **Verify the CSP for Rumik.** `connect-src` allows `wss://*.rumik.ai` and the host of `SILK_BASE_URL`. Confirm the `ws_url` returned by `/api/voice/silk-mint` is on one of those hosts in production and that no CSP errors appear during a call.
 3. **Live-test chat and voice in production**: Gemini replies, voice notes (transcribe and TTS), a full call with barge-in, call history, rate-limit messages. Test on iOS Safari and Android Chrome.
 4. **Legal review** of `components/legal/LegalContent.tsx` (terms, privacy).
-5. **Unique portraits.** 12 personas reuse another persona's photo: `ananya-sen`, `ravi-pillai`, `kabir-singh`, `meera-naidu`, `ishaan-mahajan`, `anika-rao`, `yusuf-khan`, `tanvi-banerjee`, `vikrant-naik`, `noor-bedi`, `harish-iyengar`, `rhea-pinto`. Add each as `public/portraits/<slug>.webp` (640×640; `pnpm generate:portraits` writes that format), point its `portrait` in `lib/constants.ts` at it, run `pnpm seed --prod`, and keep the alt text saying they are AI-generated.
-6. **Search Console.** Verify the domain and submit `/sitemap.xml`.
-7. **Pipecat upgrade** in `voice-agent/` (currently pipecat-ai 1.2.1), or delete the folder if a server-side pipeline is not planned.
-8. **ESLint 10 and TypeScript 7** once `eslint-config-next` and the rest of the toolchain support them.
+5. **Search Console.** Verify the domain and submit `/sitemap.xml`.
+6. **Pipecat upgrade** in `voice-agent/` (currently pipecat-ai 1.2.1), or delete the folder if a server-side pipeline is not planned.
+7. **ESLint 10 and TypeScript 7** once `eslint-config-next` and the rest of the toolchain support them.
 
 ## Ideas, not scheduled
 
