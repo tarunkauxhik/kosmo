@@ -11,7 +11,8 @@ function env(name: string) {
 export async function geminiReply(system: string, history: LlmMessage[]): Promise<string> {
     const apiKey = env("GEMINI_API_KEY") ?? env("GOOGLE_API_KEY");
     if (!apiKey) throw new ConvexError("GEMINI_API_KEY is not set on the Convex deployment.");
-    const model = env("GOOGLE_CHAT_MODEL") ?? "gemini-2.5-flash";
+    // gemini-2.5-flash returns 404 for newer API projects.
+    const model = env("GOOGLE_CHAT_MODEL") ?? "gemini-3.5-flash";
 
     // Gemini expects the conversation to open with a user turn.
     const firstUser = history.findIndex((m) => m.role === "user");
@@ -28,13 +29,19 @@ export async function geminiReply(system: string, history: LlmMessage[]): Promis
             body: JSON.stringify({
                 systemInstruction: { parts: [{ text: system }] },
                 contents,
-                generationConfig: { temperature: 0.7, topP: 0.95, maxOutputTokens: 360 },
+                // Thinking tokens count against maxOutputTokens and would cut short replies off.
+                generationConfig: {
+                    temperature: 0.7,
+                    topP: 0.95,
+                    maxOutputTokens: 360,
+                    thinkingConfig: { thinkingBudget: 0 },
+                },
             }),
         },
     );
     if (!res.ok) {
         console.error("Gemini request failed", res.status, (await res.text()).slice(0, 300));
-        throw new ConvexError("Unable to generate a reply right now.");
+        throw new ConvexError(`Unable to generate a reply right now (model error ${res.status}).`);
     }
     const data = (await res.json()) as {
         candidates?: { content?: { parts?: { text?: string }[] } }[];

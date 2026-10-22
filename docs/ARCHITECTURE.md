@@ -180,7 +180,7 @@ The persona greets first: `calls.respond` with `kickoff: true` asks for a greeti
 | `SITE_URL` (or `BETTER_AUTH_URL`) | Convex | yes | App origin for Better Auth |
 | `BETTER_AUTH_SECRET` | Convex | yes | Session signing secret |
 | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | Convex | for chat | Gemini |
-| `GOOGLE_CHAT_MODEL` | Convex | no | Default `gemini-2.5-flash` |
+| `GOOGLE_CHAT_MODEL` | Convex | no | Default `gemini-3.5-flash` (2.5 Flash returns 404 for newer API projects). Thinking is turned off so it cannot eat the 360-token reply budget |
 | `OPENROUTER_API_KEY` | Convex | for calls | OpenRouter |
 | `OPENROUTER_MODEL` | Convex | no | Default `google/gemini-3.1-flash-lite-preview` |
 | `GEMINI_API_KEY` | `.env.local` | scripts | Only for `pnpm generate:portraits` |

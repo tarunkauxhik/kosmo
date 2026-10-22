@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { useAction, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "@/convex/_generated/api";
 import { firstName } from "@/lib/format";
 
@@ -30,8 +31,9 @@ function isRateLimited(err: unknown) {
 
 function chatErrorMessage(err: unknown) {
     if (isRateLimited(err)) return "You're sending messages quickly. Wait a few seconds, then retry.";
-    // Server error text can mention configuration, so it is logged rather than shown.
     console.error("[chat] send failed", err);
+    // ConvexError messages are written for users; Convex redacts any other server error in production.
+    if (err instanceof ConvexError && typeof err.data === "string") return err.data;
     return "No reply came back. Check your connection and try again.";
 }
 

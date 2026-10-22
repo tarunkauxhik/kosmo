@@ -27,7 +27,7 @@ More detail lives in `docs/`, one topic per file:
 | Backend | Convex (database, functions, file storage) | 1.47 |
 | Auth | Better Auth through `@convex-dev/better-auth` | 1.6.33, 0.12.5 |
 | Rate limits | `@convex-dev/rate-limiter` | 0.4 |
-| AI | Gemini 2.5 Flash over REST (chat), OpenRouter (voice replies) | |
+| AI | Gemini 3.5 Flash over REST (chat, thinking off), OpenRouter (voice replies) | |
 | Speech | Deepgram Flux (STT), Rumik SILK (TTS) | |
 | Language | TypeScript, strict | 6.0 |
 | Lint/format | ESLint (next config), Prettier | 9.39, 3 |
