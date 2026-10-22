@@ -17,14 +17,15 @@ export const getSession = query({
     args: { counsellorSlug: v.string() },
     handler: async (ctx, { counsellorSlug }) => {
         const { tokenIdentifier } = await requireIdentity(ctx);
-        const messages = await ctx.db
+        // The latest 80, returned oldest first for display.
+        const latest = await ctx.db
             .query("chatMessages")
             .withIndex("by_userKey_and_counsellorSlug_and_createdAt", (q) =>
                 q.eq("userKey", tokenIdentifier).eq("counsellorSlug", counsellorSlug),
             )
-            .order("asc")
+            .order("desc")
             .take(80);
-        return { messages };
+        return { messages: latest.reverse() };
     },
 });
 
