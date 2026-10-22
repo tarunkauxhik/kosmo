@@ -1,7 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
 import { SEED_COUNSELLORS } from "../lib/constants";
+import { requireIdentity } from "./lib/users";
 
+// Signed-in reads only. Public pages render the same personas from lib/constants.ts at build time.
 export const list = query({
     args: {
         category: v.optional(v.string()),
@@ -9,7 +11,9 @@ export const list = query({
         q: v.optional(v.string()),
     },
     handler: async (ctx, { category, mode, q }) => {
-        const all = await ctx.db.query("counsellors").collect();
+        await requireIdentity(ctx);
+        // Bounded by the seeded persona set (24 rows).
+        const all = await ctx.db.query("counsellors").take(200);
         const needle = q?.trim().toLowerCase() ?? "";
         return all.filter((c) => {
             if (category && !c.categories.includes(category)) return false;
@@ -26,6 +30,7 @@ export const list = query({
 export const getBySlug = query({
     args: { slug: v.string() },
     handler: async (ctx, { slug }) => {
+        await requireIdentity(ctx);
         return ctx.db
             .query("counsellors")
             .withIndex("by_slug", (q) => q.eq("slug", slug))
@@ -33,8 +38,7 @@ export const getBySlug = query({
     },
 });
 
-
-// Internal: upserts the personas from lib/constants.ts. Run with `pnpm seed:counsellors`.
+// Internal: upserts the personas from lib/constants.ts. Run with `pnpm seed` (`pnpm seed --prod` for production).
 export const seed = internalMutation({
     args: {},
     handler: async (ctx) => {

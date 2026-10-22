@@ -1,6 +1,6 @@
 import type { UsedEmoji } from "./emoji";
 
-export type CategorySlug = "marriage" | "health" | "wealth" | "legal" | "finance" | "career";
+type CategorySlug = "marriage" | "health" | "wealth" | "legal" | "finance" | "career";
 
 // `emoji` is rendered through <Emoji> so it looks the same on every platform.
 export const CATEGORIES: { slug: CategorySlug; label: string; emoji: UsedEmoji }[] = [
@@ -12,7 +12,7 @@ export const CATEGORIES: { slug: CategorySlug; label: string; emoji: UsedEmoji }
     { slug: "legal", label: "Legal", emoji: "⚖️" },
 ];
 
-export type SeedCounsellor = {
+type SeedCounsellor = {
     slug: string;
     name: string;
     portrait: string;

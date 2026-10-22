@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export const gender = v.union(v.literal("male"), v.literal("female"));
 
-export const counsellorFields = {
+const counsellorFields = {
     slug: v.string(),
     name: v.string(),
     gender,
@@ -35,7 +35,9 @@ export default defineSchema({
         birthPlace: v.optional(v.string()),
         profileImageStorageId: v.optional(v.id("_storage")),
         onboardedAt: v.optional(v.number()),
-    }).index("by_authId", ["authId"]),
+    })
+        .index("by_authId", ["authId"])
+        .index("by_profileImageStorageId", ["profileImageStorageId"]),
 
     counsellors: defineTable(counsellorFields).index("by_slug", ["slug"]),
 

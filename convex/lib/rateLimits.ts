@@ -10,5 +10,3 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     tts: { kind: "token bucket", rate: 40, period: MINUTE, capacity: 12 },
     stt: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 6 },
 });
-
-export type LimitName = "chatMessage" | "voiceTurn" | "callStart" | "tts" | "stt";

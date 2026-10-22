@@ -1,6 +1,5 @@
 import { ThinkingOrb } from "thinking-orbs";
 import type { CallActivity } from "@/hooks/useVoiceCall";
-import { cn } from "@/lib/utils";
 
 export function CallCaptions({
     user,
@@ -28,7 +27,7 @@ export function CallCaptions({
                 </p>
             ) : (
                 assistant && (
-                    <p className={cn("line-clamp-5 w-fit max-w-[85%] py-1 text-[0.9375rem] leading-relaxed")}>
+                    <p className="line-clamp-5 w-fit max-w-[85%] py-1 text-[0.9375rem] leading-relaxed">
                         <span className="sr-only">{counsellorFirstName}: </span>
                         {assistant}
                     </p>

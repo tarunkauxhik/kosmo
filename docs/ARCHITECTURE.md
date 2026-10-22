@@ -88,13 +88,13 @@ erDiagram
   }
 ```
 
-Source of truth: `convex/schema.ts`. Better Auth keeps its own user, session and account tables inside its component. Personas are defined in `lib/constants.ts` and copied into `counsellors` by `pnpm seed:counsellors`; re-run it after editing a persona.
+Source of truth: `convex/schema.ts`. Better Auth keeps its own user, session and account tables inside its component. Personas are defined in `lib/constants.ts` and copied into `counsellors` by `pnpm seed`; re-run it after editing a persona (`pnpm seed --prod` for production).
 
 ## Convex functions
 
 | Module | Public | Internal |
 | --- | --- | --- |
-| `counsellors` | `list`, `getBySlug` | `seed` |
+| `counsellors` | `list`, `getBySlug` (signed in only) | `seed` |
 | `user` | `ensureUser`, `getProfile`, `saveProfile`, `generateProfileUploadUrl` | |
 | `chat` | `getSession`, `listSessions`, `send` (action) | `beginTurn`, `saveReply` |
 | `calls` | `start`, `end`, `listMine`, `getMine`, `respond` (action) | `beginTurn`, `saveBotTurn` |
@@ -163,6 +163,7 @@ The persona greets first: `calls.respond` with `kickoff: true` asks for a greeti
 - Headers and CSP live in `next.config.ts`. `connect-src` lists Convex, `wss://api.deepgram.com` and the Rumik hosts. The CSP is applied to production builds only (dev needs `eval`).
 - `script-src` allows `'unsafe-inline'` because a nonce would make every page dynamic (see DECISIONS.md).
 - API routes call `guardRequest()` (`lib/api-guard.ts`): session check, then a Convex rate-limit mutation, then the third-party call.
+- `user.saveProfile` only accepts a profile photo storage id that points at an image of at most 8 MB and that no other user has claimed (index `by_profileImageStorageId`), so one user cannot take over or delete another user's file.
 
 ## Environment variables
 
@@ -171,7 +172,6 @@ The persona greets first: `calls.respond` with `kickoff: true` asks for a greeti
 | `CONVEX_DEPLOYMENT` | `.env.local` | dev | Written by `npx convex dev` |
 | `NEXT_PUBLIC_CONVEX_URL` | `.env.local`, Vercel | yes | Convex client URL |
 | `NEXT_PUBLIC_CONVEX_SITE_URL` | `.env.local`, Vercel | yes | Convex HTTP actions URL (auth proxy) |
-| `CONVEX_SITE_URL` | `.env.local`, Vercel | yes | Same value; read by `@convex-dev/better-auth` |
 | `NEXT_PUBLIC_SITE_URL` | `.env.local`, Vercel | production | Public origin for canonical URLs, OG, sitemap, robots. Falls back to `VERCEL_PROJECT_PRODUCTION_URL`, then localhost |
 | `DEEPGRAM_API_KEY` | `.env.local`, Vercel | for voice | Deepgram key with Member permissions (mints temporary tokens) |
 | `SILK_API_KEY` | `.env.local`, Vercel | for voice | Rumik TTS |
@@ -183,7 +183,19 @@ The persona greets first: `calls.respond` with `kickoff: true` asks for a greeti
 | `GOOGLE_CHAT_MODEL` | Convex | no | Default `gemini-2.5-flash` |
 | `OPENROUTER_API_KEY` | Convex | for calls | OpenRouter |
 | `OPENROUTER_MODEL` | Convex | no | Default `google/gemini-3.1-flash-lite-preview` |
-| `CONVEX_DEPLOY_KEY` | Vercel | production | Lets `npx convex deploy --cmd 'pnpm build'` deploy functions and inject URLs |
 | `GEMINI_API_KEY` | `.env.local` | scripts | Only for `pnpm generate:portraits` |
 
 `voice-agent/server/.env.example` lists the Pipecat server's own variables.
+
+`CONVEX_SITE_URL` is not needed in Next.js: `lib/auth-server.ts` passes `NEXT_PUBLIC_CONVEX_SITE_URL` to Better Auth explicitly, and Convex sets `CONVEX_SITE_URL` itself inside its runtime.
+
+## Deployment
+
+| Part | Where | How it ships |
+| --- | --- | --- |
+| Web app | Vercel project `kosmo` (Hobby), https://kosmo-ai.vercel.app | Every push to `main` builds and deploys (`pnpm build`). Vercel does not touch Convex. |
+| Backend | Convex production deployment `graceful-elephant-326` | Manually: `npx convex deploy` after any change under `convex/` (functions, schema, indexes). |
+| Personas | Convex `counsellors` table | `pnpm seed --prod` after editing `lib/constants.ts` (runs the internal mutation `counsellors:seed`). |
+| Dev backend | Convex dev deployment `wry-wolverine-89` | `pnpm dev` / `pnpm dev:convex` push on save; `pnpm seed` seeds it. |
+
+Ship backend changes before or together with the web change that depends on them: deploy Convex first, then push to `main`.

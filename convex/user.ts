@@ -1,8 +1,11 @@
 import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { gender } from "./schema";
 import { getUserByAuthId, requireIdentity, requireUser } from "./lib/users";
+
+// Matches the client-side limit in hooks/usePhotoUpload.ts.
+const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export const ensureUser = mutation({
     args: {},
@@ -72,16 +75,25 @@ export const saveProfile = mutation({
     handler: async (ctx, args) => {
         const user = await requireUser(ctx);
 
-        // Replacing the profile picture: delete the old blob so it isn't orphaned.
-        if (
-            args.profileImageStorageId &&
-            user.profileImageStorageId &&
-            user.profileImageStorageId !== args.profileImageStorageId
-        ) {
-            try {
-                await ctx.storage.delete(user.profileImageStorageId);
-            } catch (e) {
-                console.warn("failed to delete old profile image", e);
+        const newImage = args.profileImageStorageId;
+        if (newImage && newImage !== user.profileImageStorageId) {
+            // The id comes from the browser: accept only an image upload that no other user has claimed.
+            const file = await ctx.db.system.get("_storage", newImage);
+            const claimed = await ctx.db
+                .query("users")
+                .withIndex("by_profileImageStorageId", (q) => q.eq("profileImageStorageId", newImage))
+                .first();
+            if (!file || !file.contentType?.startsWith("image/") || file.size > MAX_PROFILE_IMAGE_BYTES || claimed) {
+                throw new ConvexError("That photo couldn't be used. Upload it again.");
+            }
+
+            // Replacing the profile picture: delete the old blob so it isn't orphaned.
+            if (user.profileImageStorageId) {
+                try {
+                    await ctx.storage.delete(user.profileImageStorageId);
+                } catch (e) {
+                    console.warn("failed to delete old profile image", e);
+                }
             }
         }
 

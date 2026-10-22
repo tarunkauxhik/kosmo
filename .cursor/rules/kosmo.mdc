@@ -1,6 +1,0 @@
----
-description: Kosmo project rules
-alwaysApply: true
----
-
-Follow @AGENTS.md. It is the single source of truth for this repo: stack, commands, conventions, UI rules, budgets and the definition of done. Docs live in docs/.

@@ -23,7 +23,7 @@ export async function AstrologerGrid({ category, mode, q }: { category?: string;
                             ? q
                                 ? `Nothing matches “${q}”. Try a tradition like tarot or a language like Tamil.`
                                 : "Try another topic or clear the filters."
-                            : "Personas haven't been loaded. Run pnpm seed:counsellors."}
+                            : "Personas haven't been loaded. Run pnpm seed."}
                     </EmptyDescription>
                 </EmptyHeader>
                 {filtered && (

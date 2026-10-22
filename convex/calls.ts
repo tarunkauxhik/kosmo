@@ -7,6 +7,8 @@ import { rateLimiter } from "./lib/rateLimits";
 import { getUserByAuthId, promptProfile, requireUser } from "./lib/users";
 
 const HISTORY_LIMIT = 30;
+// The voiceTurn limit allows about 60 turns a minute, so this covers calls of well over 15 minutes.
+const MAX_TRANSCRIPT_TURNS = 1000;
 
 export const start = mutation({
     args: { counsellorSlug: v.string() },
@@ -68,7 +70,7 @@ export const getMine = query({
             .query("callTurns")
             .withIndex("by_callId_ts", (q) => q.eq("callId", callId))
             .order("asc")
-            .collect();
+            .take(MAX_TRANSCRIPT_TURNS);
         return { call, turns };
     },
 });

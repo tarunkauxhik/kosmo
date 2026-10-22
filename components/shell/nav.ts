@@ -1,6 +1,6 @@
 import { Compass, MessageCircle, Phone, Sparkles, type LucideIcon } from "lucide-react";
 
-export type NavItem = { href: string; label: string; icon: LucideIcon };
+type NavItem = { href: string; label: string; icon: LucideIcon };
 
 export const NAV: NavItem[] = [
     { href: "/dashboard", label: "Astrologers", icon: Compass },

@@ -2,7 +2,7 @@
 // male personas use `mulberry` (steered by a natural-language description).
 // Gender comes from the persona record in Convex, so there is one source of truth.
 
-export type VoiceGender = "male" | "female";
+type VoiceGender = "male" | "female";
 
 export const FEMALE_TONES = ["neutral", "happy", "excited"] as const;
 

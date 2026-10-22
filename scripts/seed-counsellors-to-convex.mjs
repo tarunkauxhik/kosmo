@@ -1,6 +1,6 @@
 // Upserts the AI personas from lib/constants.ts into the Convex `counsellors` table.
-// Usage: pnpm seed:counsellors            (dev deployment)
-//        pnpm seed:counsellors --prod     (production deployment)
+// Usage: pnpm seed          (dev deployment)
+//        pnpm seed --prod   (production deployment)
 import { spawnSync } from "node:child_process";
 
 const result = spawnSync("npx", ["convex", "run", ...process.argv.slice(2), "counsellors:seed"], {

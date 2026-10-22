@@ -21,7 +21,7 @@ const HINGLISH_RULES =
     "'Dekhiye, aapki kundali mein Saturn strong position mein hai, isliye thoda patience rakhna padega.'. " +
     "Keep it warm, casual and conversational, like an elder counsellor on a phone call.";
 
-export function computeAge(birthDate?: string | null): number | null {
+function computeAge(birthDate?: string | null): number | null {
     if (!birthDate) return null;
     const d = new Date(birthDate);
     if (Number.isNaN(d.getTime())) return null;

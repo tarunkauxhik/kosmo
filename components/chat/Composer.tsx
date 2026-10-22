@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { ArrowUp, Mic, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 
 function clock(sec: number) {
     return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
@@ -125,7 +124,7 @@ export function Composer({
                     onClick={onStartRecording}
                     disabled={busy}
                     aria-label="Record a voice note"
-                    className={cn("text-muted-foreground hover:text-foreground")}
+                    className="text-muted-foreground hover:text-foreground"
                 >
                     <Mic />
                 </Button>

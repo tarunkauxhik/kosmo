@@ -9,14 +9,6 @@ function deepgramError(status: number) {
     return "Speech transcription failed.";
 }
 
-function extensionFor(type: string) {
-    if (type.includes("mp4")) return "m4a";
-    if (type.includes("mpeg")) return "mp3";
-    if (type.includes("ogg")) return "ogg";
-    if (type.includes("wav")) return "wav";
-    return "webm";
-}
-
 export async function POST(request: Request) {
     const blocked = await guardRequest("stt");
     if (blocked) return blocked;
@@ -78,8 +70,5 @@ export async function POST(request: Request) {
         );
     }
 
-    return NextResponse.json({
-        text,
-        filename: `voice-note.${extensionFor(audioType)}`,
-    });
+    return NextResponse.json({ text });
 }

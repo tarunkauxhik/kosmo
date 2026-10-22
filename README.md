@@ -6,6 +6,8 @@
 
 <p align="center">Voice calls and chat with AI astrologer personas, in English or Hinglish.</p>
 
+Live at **https://kosmo-ai.vercel.app**.
+
 Kosmo lets you pick an astrologer persona, share your birth details once, and then talk to it by voice or text. Every persona is an AI and is labelled as one in the app. Replies come from a language model and are meant for reflection, not for medical, legal or financial decisions.
 
 ## Features
@@ -33,7 +35,7 @@ cp .env.example .env.local
 npx convex dev --once        # creates a deployment and writes the Convex URLs to .env.local
 ```
 
-Add `CONVEX_SITE_URL` to `.env.local` (same value as `NEXT_PUBLIC_CONVEX_SITE_URL`), then set the server secrets on the Convex deployment:
+Then set the server secrets on the Convex deployment:
 
 ```bash
 npx convex env set SITE_URL http://localhost:3000
@@ -45,25 +47,15 @@ npx convex env set OPENROUTER_API_KEY <key>    # voice calls
 Put `DEEPGRAM_API_KEY` and `SILK_API_KEY` in `.env.local` for voice, then seed the personas and start:
 
 ```bash
-pnpm seed:counsellors
+pnpm seed
 pnpm dev                     # http://localhost:3000
 ```
 
-## Scripts
-
-| Command | What it does |
-| --- | --- |
-| `pnpm dev` | Next.js and Convex together (`dev:web`, `dev:convex` run one side) |
-| `pnpm build`, `pnpm start` | Production build and server |
-| `pnpm lint`, `pnpm typecheck`, `pnpm format` | ESLint, TypeScript (app and `convex/`), Prettier |
-| `pnpm seed:counsellors` | Load personas from `lib/constants.ts` into Convex (`--prod` for production) |
-| `pnpm emoji:fetch` | Download the emoji images for `EMOJI_SET` |
-| `pnpm generate:portraits` | Generate missing persona portraits with Gemini |
-| `pnpm dev:voice` | Optional Pipecat voice agent in `voice-agent/` (needs uv) |
+The web app deploys to Vercel on every push to `main`. Convex is deployed separately with `npx convex deploy` (see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md#deployment)).
 
 ## Documentation
 
-- [AGENTS.md](./AGENTS.md): conventions, commands and rules for contributors and AI coding agents
+- [AGENTS.md](./AGENTS.md): commands, conventions and rules for contributors and AI coding agents
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md): system diagram, data model, flows, environment variables
 - [docs/DESIGN.md](./docs/DESIGN.md): palette, type, motion and borrowed components
 - [docs/DECISIONS.md](./docs/DECISIONS.md): why things are built the way they are

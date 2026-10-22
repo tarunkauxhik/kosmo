@@ -28,7 +28,7 @@ import { FieldError } from "@/components/auth/FieldError";
 import { PhotoPicker } from "./PhotoPicker";
 import { GenderField, type Gender } from "./GenderField";
 
-export type ProfileInitial = {
+type ProfileInitial = {
     displayName: string;
     gender: Gender | null;
     birthDate: string | null;

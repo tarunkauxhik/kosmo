@@ -44,4 +44,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .playwright-mcp/
+.codebase-memory/
 .claude/settings.local.json
+# Skills live only in .claude/skills; `npx skills add` / `convex ai-files` would recreate this copy.
+.agents/
