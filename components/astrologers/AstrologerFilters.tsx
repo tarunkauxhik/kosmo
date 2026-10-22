@@ -90,7 +90,7 @@ export function AstrologerFilters() {
                     ) : null}
                 </span>
             </div>
-            <nav aria-label="Filter by topic" className="-mx-5 overflow-x-auto px-5 no-scrollbar sm:mx-0 sm:px-0">
+            <nav aria-label="Filter by topic" className="-mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
                 <ul className="flex gap-2 pb-1 sm:flex-wrap [&>li]:shrink-0">
                     <li>
                         <Link

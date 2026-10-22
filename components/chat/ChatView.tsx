@@ -116,7 +116,7 @@ export function ChatView({ counsellor, displayName }: { counsellor: ChatCounsell
             <div className="shrink-0 border-t bg-background px-3 pt-3 pb-safe sm:px-6">
                 <div className="mx-auto w-full max-w-3xl space-y-3 pb-3">
                     {!chat.loading && !chat.hasUserMessages && (
-                        <div className="no-scrollbar -mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:px-0">
+                        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 sm:mx-0 sm:flex-wrap sm:px-0">
                             {SUGGESTIONS.map((s) => (
                                 <Button
                                     key={s}

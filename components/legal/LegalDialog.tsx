@@ -9,7 +9,6 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { LEGAL_TITLES, LEGAL_UPDATED, LegalContent, type LegalKind } from "./LegalContent";
 
 // Opens legal copy in place (auth screens) with a link to the full page.
@@ -22,7 +21,7 @@ export function LegalDialog({ kind, children }: { kind: LegalKind; children: Rea
                     <DialogTitle>{LEGAL_TITLES[kind]}</DialogTitle>
                     <DialogDescription>Last updated {LEGAL_UPDATED}</DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="max-h-[60dvh] overscroll-contain">
+                <div className="max-h-[60dvh] overflow-y-auto overscroll-contain">
                     <div className="px-6 py-5">
                         <LegalContent kind={kind} />
                         <Link
@@ -32,7 +31,7 @@ export function LegalDialog({ kind, children }: { kind: LegalKind; children: Rea
                             Open as a page
                         </Link>
                     </div>
-                </ScrollArea>
+                </div>
             </DialogContent>
         </Dialog>
     );

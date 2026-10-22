@@ -71,11 +71,11 @@ export default function LandingPage() {
                     <h1 className="mx-auto max-w-3xl text-[2.5rem] leading-[1.05] font-semibold tracking-[-0.035em] sm:text-6xl">
                         Talk through your chart with an AI astrologer
                     </h1>
-                    <p className="animate-enter mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground [--stagger:1]">
+                    <p className="animate-enter mx-auto mt-5 max-w-xl text-lg leading-relaxed text-muted-foreground">
                         Pick one of {SEED_COUNSELLORS.length} AI personas, share your birth details once, then call or
                         chat about marriage, money, health or work.
                     </p>
-                    <div className="animate-enter mx-auto mt-8 flex max-w-xs flex-col gap-3 [--stagger:2] sm:max-w-none sm:flex-row sm:justify-center">
+                    <div className="animate-enter mx-auto mt-8 flex max-w-xs flex-col gap-3 sm:max-w-none sm:flex-row sm:justify-center">
                         <Button asChild size="lg">
                             <Link href="/sign-up">Create a free account</Link>
                         </Button>
@@ -85,13 +85,13 @@ export default function LandingPage() {
                             </Link>
                         </Button>
                     </div>
-                    <p className="animate-enter mt-5 flex items-center justify-center gap-2 text-sm text-muted-foreground [--stagger:3]">
+                    <p className="animate-enter mt-5 flex items-center justify-center gap-2 text-sm text-muted-foreground">
                         <span className="size-1.5 rounded-full bg-brand" aria-hidden />
                         Every astrologer here is a labelled AI persona.
                     </p>
 
                     {preview && (
-                        <figure className="animate-enter mx-auto mt-14 max-w-3xl text-left [--stagger:4] sm:mt-16">
+                        <figure className="animate-enter mx-auto mt-14 max-w-3xl text-left sm:mt-16">
                             {/* Concentric frame: outer 24px = inner 16px + 8px padding. */}
                             <div className="rounded-3xl bg-card/60 p-2 shadow-raised backdrop-blur-sm">
                                 <div className="overflow-hidden rounded-2xl bg-card shadow-surface">

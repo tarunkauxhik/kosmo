@@ -53,14 +53,15 @@ Scale (rem): 0.75 meta, 0.875 secondary, 0.9375 chat text, 1 body and inputs (16
 
 - Fast and quiet. UI transitions are 150–250ms on `--ease-out-strong` (`cubic-bezier(0.23, 1, 0.32, 1)`); only transform, opacity, colour and shadow are transitioned, never `all`.
 - Buttons and chips scale to 0.96 while pressed (`.pressable` and the button primitive).
-- Landing and auth content enters once with a short rise, blur and fade (`.animate-enter`, staggered 90ms by `--stagger`). The hero headline is not animated because it is the LCP element.
+- Landing and auth content enters once with a short rise, blur and fade (`.animate-enter`, 240ms, no delay or stagger, so nothing waits to appear). The hero headline is not animated because it is the LCP element.
+- No visible scrollbars anywhere (global rule in `app/globals.css`); scroll areas still work with wheel, touch and keyboard.
 - The password visibility icon cross-fades (opacity, scale 0.25 to 1, 4px blur). Dialogs fade and scale from 0.95, never from 0. New chat replies rise in.
 - "Thinking" states in chat and call captions use a small canvas orb from thinking-orbs. The call orb glows with live microphone level via a `--level` CSS variable written outside React renders.
 - `prefers-reduced-motion`: animations collapse to near-instant fades, press scaling is off, and the orbs render a still frame.
 
 ## Components
 
-shadcn/ui (radix-nova style, restyled to the tokens above) in `components/ui`: button, input, label, dialog, alert-dialog, alert, avatar, badge, checkbox, radio-group, progress, scroll-area, skeleton, spinner, empty, sonner, tooltip. Feature components are grouped by flow: `astrologers/`, `chat/`, `call/`, `profile/`, `onboarding/`, `legal/`, `shell/`, `site/`, `brand/`. `components/ThemeToggle.tsx` is shared by the shell, the site footer and the profile page.
+shadcn/ui (radix-nova style, restyled to the tokens above) in `components/ui`: button, input, label, dialog, alert-dialog, alert, avatar, badge, checkbox, radio-group, progress, skeleton, spinner, empty, sonner, tooltip. Feature components are grouped by flow: `astrologers/`, `chat/`, `call/`, `profile/`, `onboarding/`, `legal/`, `shell/`, `site/`, `brand/`. `components/ThemeToggle.tsx` is shared by the shell, the site footer and the profile page.
 
 States every data screen must have: a skeleton shaped like the real content, an empty state that says what to do next, an inline error with a retry, and a disabled-with-spinner state for buttons that keeps the label.
 
@@ -89,7 +90,7 @@ Only code published for reuse was taken, and only one package was added.
 | Motion rules: strong ease-out curve, sub-300ms UI motion, never animate from scale 0, hover gated to hover-capable devices, reduced motion keeps fades | `--ease-out-strong`, dialogs, `.animate-enter` | `emil-design-eng` skill via https://skills.sh | MIT |
 | Anti-patterns to avoid (generic AI landing tells) and "spend boldness in one place" | Landing and auth composition | Anthropic `frontend-design` skill via https://skills.sh | Guidance only, no code copied |
 | Web interface checklist (focus states, `color-scheme`, `theme-color`, no layout shift) | Layout and forms | https://github.com/vercel-labs/web-interface-guidelines | Guidance only, no code copied |
-| Transition patterns (blur-and-rise enter, staggered reveal) | `.animate-enter` (written from scratch) | https://transitions.dev | Ideas only; no licence published, so no code copied |
+| Transition patterns (blur-and-rise enter) | `.animate-enter` (written from scratch) | https://transitions.dev | Ideas only; no licence published, so no code copied |
 | Block layout ideas (voice-note card, toast stack) | Voice note card, toasts (written from scratch) | https://bencho.dev | Ideas only; free blocks are MIT but none were copied |
 | Geist typeface | `app/fonts/` | https://vercel.com/font (npm `geist` 1.8.2) | SIL OFL 1.1 |
 

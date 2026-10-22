@@ -62,7 +62,7 @@
 @theme static {
     /* Strong ease-out for anything entering or responding to input; never ease-in. */
     --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
-    --animate-enter: enter 600ms var(--ease-out-strong) both;
+    --animate-enter: enter 240ms var(--ease-out-strong) both;
     --animate-rise: rise 240ms var(--ease-out-strong) both;
 }
 
@@ -195,6 +195,13 @@
     ::selection {
         background: color-mix(in oklab, var(--brand) 28%, transparent);
     }
+    /* No visible scrollbars anywhere; every area still scrolls with wheel, touch and keyboard. */
+    * {
+        scrollbar-width: none;
+    }
+    *::-webkit-scrollbar {
+        display: none;
+    }
 }
 
 @layer utilities {
@@ -212,16 +219,9 @@
     .pressable:active {
         scale: 0.96;
     }
-    /* Staged entrance; set --stagger on siblings (1, 2, 3…) for a 90ms cascade. */
+    /* One short entrance, no delay: content is visible as soon as it renders. */
     .animate-enter {
         animation: var(--animate-enter);
-        animation-delay: calc(90ms * var(--stagger, 0));
-    }
-    .no-scrollbar::-webkit-scrollbar {
-        display: none;
-    }
-    .no-scrollbar {
-        scrollbar-width: none;
     }
     .pb-safe {
         padding-bottom: env(safe-area-inset-bottom);
