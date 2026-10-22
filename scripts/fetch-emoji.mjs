@@ -1,5 +1,5 @@
 // Downloads the emoji the UI uses (USED_EMOJI) for one artwork set into public/emoji/<set>/.
-// Usage: pnpm emoji:fetch [apple|twitter|google|facebook|fluent]   (defaults to EMOJI_SET)
+// Usage: pnpm emoji:fetch [fluent|google|twitter]   (defaults to EMOJI_SET)
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { EMOJI_SET, USED_EMOJI, emojiCdnUrl, emojiPath } from "../lib/emoji.ts";

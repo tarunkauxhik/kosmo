@@ -71,9 +71,9 @@ Every persona is labelled "AI persona" (iris badge; its `title` explains that re
 
 ## Emoji
 
-Used sparingly: topic chips (💍 💼 🩺 💰 📈 ⚖️), the onboarding welcome (🙏) and the remedies placeholder (🪔). `components/Emoji.tsx` renders them as self-hosted images (`public/emoji/<set>/`) from one artwork set chosen by `EMOJI_SET` in `lib/emoji.ts` (`apple`, `twitter`, `google`, `fluent`, `facebook`); the list of emoji in use is `USED_EMOJI` there, and `pnpm emoji:fetch` downloads them. Decorative emoji are `aria-hidden`; pass `label` when the emoji carries meaning.
+Used sparingly: topic chips (💍 💼 🩺 💰 📈 ⚖️), the onboarding welcome (🙏) and the remedies placeholder (🪔). `components/Emoji.tsx` renders them as self-hosted images (`public/emoji/<set>/`) from one artwork set chosen by `EMOJI_SET` in `lib/emoji.ts` (`fluent`, the default, plus `google` and `twitter`); the list of emoji in use is `USED_EMOJI` there, and `pnpm emoji:fetch` downloads them. Decorative emoji are `aria-hidden`; pass `label` when the emoji carries meaning.
 
-Licensing: the default `apple` set is Apple's artwork and is not licensed for use outside Apple platforms. Switch to `twitter` (CC BY 4.0, credit Twitter), `google` (Apache 2.0) or `fluent` (MIT) before a public launch.
+Licensing: Microsoft Fluent Emoji 3D, MIT. `google` (Noto, Apache 2.0) is the fallback; `twitter` (CC BY 4.0) would need a credit line. Apple's and Meta's artwork are not licensed for a public site, so they are not options.
 
 ## Brand
 

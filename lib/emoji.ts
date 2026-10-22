@@ -2,22 +2,19 @@
 // Change EMOJI_SET to switch the look everywhere, then run `pnpm emoji:fetch`
 // to download that set's files into public/emoji/<set>/ (they are served from our own origin).
 //
-// Licensing, check before a public launch:
-//   apple     Apple's artwork. Not licensed for redistribution or use outside Apple
-//             platforms; shipping it in a public product is a legal risk.
-//   twitter   Twemoji, CC BY 4.0 (attribution required).
+// Only sets licensed for use on a public site (Apple's and Meta's artwork are not):
+//   fluent    Microsoft Fluent Emoji 3D, MIT. The default: glossy, closest to iOS.
 //   google    Noto Color Emoji, Apache 2.0.
-//   fluent    Microsoft Fluent Emoji 3D, MIT.
-//   facebook  Meta's artwork. Same caveats as Apple.
-export type EmojiSet = "apple" | "twitter" | "google" | "facebook" | "fluent";
+//   twitter   Twemoji, CC BY 4.0 (needs an attribution line if used).
+export type EmojiSet = "fluent" | "google" | "twitter";
 
-export const EMOJI_SET: EmojiSet = "apple";
+export const EMOJI_SET: EmojiSet = "fluent";
 
 // Every emoji the UI renders. Add here, then run `pnpm emoji:fetch`.
 export const USED_EMOJI = ["💍", "💼", "🩺", "💰", "📈", "⚖️", "🙏", "🪔"] as const;
 export type UsedEmoji = (typeof USED_EMOJI)[number];
 
-// emoji-datasource-<set> npm packages (apple, twitter, google, facebook) on jsDelivr.
+// emoji-datasource-<set> npm packages (google, twitter) on jsDelivr.
 // They ship 64px PNGs only, which stay sharp up to ~32px at 2x.
 const DATASOURCE_VERSION = "16.0.0";
 // @lobehub/fluent-emoji-3d npm package on jsDelivr: codepoint-named WebP files.

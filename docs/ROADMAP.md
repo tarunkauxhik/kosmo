@@ -11,18 +11,18 @@
 7. **Visual refresh.** Neutral palette with one iris accent, light and dark themes with a toggle, Geist, new ring-and-moon mark and favicon, detail and motion rules from jakub.kr and Emil Kowalski, `thinking-orbs` for thinking states.
 8. **Launch.** Web app live on Vercel at https://kosmo-ai.vercel.app (auto-deploys from `main`). Convex production deployed with `npx convex deploy` and seeded with the 24 personas. `NEXT_PUBLIC_SITE_URL` and `SITE_URL` set.
 9. **Repo cleanup.** One instruction file (`AGENTS.md`), Convex skills cut to the eight this app uses, stale docs fixed, profile photo ownership check, bounded transcript reads, Convex counsellor queries require sign-in.
+10. **Licensed emoji.** Switched from Apple's artwork to Microsoft Fluent Emoji 3D (MIT).
 
 ## Next (in priority order)
 
 1. **Add `LICENSE`** (GPL-3.0) at the repo root (maintainer).
-2. **Switch `EMOJI_SET` off `apple`** in `lib/emoji.ts` (to `twitter`, `google` or `fluent`), run `pnpm emoji:fetch`, delete `public/emoji/apple/`, and update the note in docs/DESIGN.md. Twemoji needs attribution. The site is public, so this is now urgent.
-3. **Verify the CSP for Rumik.** `connect-src` allows `wss://*.rumik.ai` and the host of `SILK_BASE_URL`. Confirm the `ws_url` returned by `/api/voice/silk-mint` is on one of those hosts in production and that no CSP errors appear during a call.
-4. **Live-test chat and voice in production**: Gemini replies, voice notes (transcribe and TTS), a full call with barge-in, call history, rate-limit messages. Test on iOS Safari and Android Chrome.
-5. **Legal review** of `components/legal/LegalContent.tsx` (terms, privacy).
-6. **Unique portraits.** There are 12 portrait files (about 17 MB of PNG) for 24 personas, so half of them reuse another persona's photo (see `portrait` in `lib/constants.ts`). Add entries to `scripts/generate-portraits.mjs`, generate the missing ones with `pnpm generate:portraits`, point each persona at its own file, compress them, run `pnpm seed --prod`, and keep the alt text saying they are AI-generated.
-7. **Search Console.** Verify the domain and submit `/sitemap.xml`.
-8. **Pipecat upgrade** in `voice-agent/` (currently pipecat-ai 1.2.1), or delete the folder if a server-side pipeline is not planned.
-9. **ESLint 10 and TypeScript 7** once `eslint-config-next` and the rest of the toolchain support them.
+2. **Verify the CSP for Rumik.** `connect-src` allows `wss://*.rumik.ai` and the host of `SILK_BASE_URL`. Confirm the `ws_url` returned by `/api/voice/silk-mint` is on one of those hosts in production and that no CSP errors appear during a call.
+3. **Live-test chat and voice in production**: Gemini replies, voice notes (transcribe and TTS), a full call with barge-in, call history, rate-limit messages. Test on iOS Safari and Android Chrome.
+4. **Legal review** of `components/legal/LegalContent.tsx` (terms, privacy).
+5. **Unique portraits.** There are 12 portrait files (about 17 MB of PNG) for 24 personas, so half of them reuse another persona's photo (see `portrait` in `lib/constants.ts`). Add entries to `scripts/generate-portraits.mjs`, generate the missing ones with `pnpm generate:portraits`, point each persona at its own file, compress them, run `pnpm seed --prod`, and keep the alt text saying they are AI-generated.
+6. **Search Console.** Verify the domain and submit `/sitemap.xml`.
+7. **Pipecat upgrade** in `voice-agent/` (currently pipecat-ai 1.2.1), or delete the folder if a server-side pipeline is not planned.
+8. **ESLint 10 and TypeScript 7** once `eslint-config-next` and the rest of the toolchain support them.
 
 ## Ideas, not scheduled
 
