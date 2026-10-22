@@ -11,15 +11,6 @@ export const dynamic = "force-dynamic";
 const MAX_TEXT = 1200;
 
 export async function POST(req: Request) {
-    const blocked = await guardRequest("tts");
-    if (blocked) return blocked;
-
-    const apiKey = envOrNull("SILK_API_KEY");
-    if (!apiKey) {
-        return Response.json({ error: "SILK_API_KEY not configured" }, { status: 500 });
-    }
-    const baseUrl = envOrNull("SILK_BASE_URL") ?? "https://silk-api.rumik.ai";
-
     const body = await req.json().catch(() => ({}));
     const text = typeof body.text === "string" ? body.text.trim().slice(0, MAX_TEXT) : "";
     const counsellorSlug = typeof body.counsellorSlug === "string" ? body.counsellorSlug : "";
@@ -27,7 +18,19 @@ export async function POST(req: Request) {
         return Response.json({ error: "text and counsellorSlug are required" }, { status: 400 });
     }
 
-    const counsellor = await fetchAuthQuery(api.counsellors.getBySlug, { slug: counsellorSlug });
+    // This runs before every spoken piece of a call, so the session check, rate limit and persona
+    // lookup happen together. The paid Rumik call still waits for the guard to pass.
+    const [blocked, counsellor] = await Promise.all([
+        guardRequest("tts"),
+        fetchAuthQuery(api.counsellors.getBySlug, { slug: counsellorSlug }).catch(() => null),
+    ]);
+    if (blocked) return blocked;
+
+    const apiKey = envOrNull("SILK_API_KEY");
+    if (!apiKey) {
+        return Response.json({ error: "SILK_API_KEY not configured" }, { status: 500 });
+    }
+    const baseUrl = envOrNull("SILK_BASE_URL") ?? "https://silk-api.rumik.ai";
     if (!counsellor) {
         return Response.json({ error: "Counsellor not found" }, { status: 404 });
     }

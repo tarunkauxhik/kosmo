@@ -28,14 +28,6 @@ function cleanText(text: string) {
 }
 
 export async function POST(request: Request) {
-    const blocked = await guardRequest("tts");
-    if (blocked) return blocked;
-
-    const apiKey = envOrNull("SILK_API_KEY");
-    if (!apiKey) {
-        return Response.json({ error: "SILK_API_KEY not configured" }, { status: 500 });
-    }
-
     let body: { text?: string; counsellorSlug?: string };
     try {
         body = await request.json();
@@ -48,9 +40,19 @@ export async function POST(request: Request) {
         return Response.json({ error: "Text is required" }, { status: 400 });
     }
 
-    const counsellor = body.counsellorSlug
-        ? await fetchAuthQuery(api.counsellors.getBySlug, { slug: body.counsellorSlug })
-        : null;
+    // Session check, rate limit and persona lookup together; the paid Rumik call waits for the guard.
+    const [blocked, counsellor] = await Promise.all([
+        guardRequest("tts"),
+        body.counsellorSlug
+            ? fetchAuthQuery(api.counsellors.getBySlug, { slug: body.counsellorSlug }).catch(() => null)
+            : null,
+    ]);
+    if (blocked) return blocked;
+
+    const apiKey = envOrNull("SILK_API_KEY");
+    if (!apiKey) {
+        return Response.json({ error: "SILK_API_KEY not configured" }, { status: 500 });
+    }
 
     // Chat voice notes always use the description-steered `mulberry` model.
     const payload = {

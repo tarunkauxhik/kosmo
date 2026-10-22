@@ -1,5 +1,6 @@
+import { fetchMutation } from "convex/nextjs";
 import { api } from "@/convex/_generated/api";
-import { fetchAuthMutation, isAuthenticated } from "@/lib/auth-server";
+import { getToken } from "@/lib/auth-server";
 
 type LimitName = "tts" | "stt" | "callStart";
 
@@ -8,11 +9,13 @@ type LimitName = "tts" | "stt" | "callStart";
  * Returns a Response to send back when the request must stop, or null to continue.
  */
 export async function guardRequest(limit: LimitName): Promise<Response | null> {
-    if (!(await isAuthenticated())) {
+    // One token fetch for both checks: the auth helpers fetch a fresh token on every call.
+    const token = await getToken();
+    if (!token) {
         return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
     try {
-        const { ok, retryAfter } = await fetchAuthMutation(api.limits.consume, { name: limit });
+        const { ok, retryAfter } = await fetchMutation(api.limits.consume, { name: limit }, { token });
         if (!ok) {
             const seconds = Math.max(1, Math.ceil(retryAfter / 1000));
             return Response.json(
