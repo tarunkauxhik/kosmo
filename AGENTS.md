@@ -68,6 +68,7 @@ pnpm dev:convex          # Convex only (pushes functions to the dev deployment, 
 pnpm build && pnpm start # production build and server
 pnpm lint                # ESLint
 pnpm typecheck           # tsc for the app and for convex/
+pnpm test                # Vitest + convex-test: chat, calls, auth, rate limits (no network, no deployment)
 pnpm format              # Prettier (write)
 pnpm seed                # upsert personas from lib/constants.ts into Convex (--prod for production)
 pnpm emoji:fetch         # download emoji images for EMOJI_SET
@@ -103,6 +104,7 @@ Development happens on Windows: keep scripts cross-platform (Node scripts, no ba
 - Writes that the browser must not be able to forge (assistant messages, bot call turns, seeding) are `internalMutation`s called from actions.
 - Ids that arrive from the browser (for example a storage id) are checked for ownership before use.
 - Bounded reads: use indexes and `.take(n)`, not `.collect()` on growing tables.
+- Tests live next to the code as `convex/<module>.test.ts` (Convex skips files with two dots, so they are never deployed) and use the helpers in `convex/test.helpers.ts` (`setup`, `signIn`, `seedCounsellor`, `sse`). Stub `fetch` for LLM calls; never hit a real API from a test.
 - Every call that spends money on a third-party API goes through the rate limiter (`convex/lib/rateLimits.ts`). Next.js API routes call `guardRequest()` in `lib/api-guard.ts`, which checks the session and consumes a limit in Convex.
 - Do not run `npx convex ai-files install` or `update`: they re-add a Convex block to `CLAUDE.md`/`AGENTS.md` and reinstall all ~30 Convex skills into `.claude/skills` and `.agents/skills`. If you need fresh guidelines, run it, then revert everything except `convex/_generated/ai/`.
 
@@ -145,7 +147,7 @@ Tokens, scales and the reasons behind them: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Definition of done
 
-1. `pnpm lint` and `pnpm typecheck` pass with no new warnings.
+1. `pnpm lint`, `pnpm typecheck` and `pnpm test` pass with no new warnings.
 2. `pnpm build` passes and public routes are still static.
 3. `pnpm format` leaves no diff.
 4. UI changes: check the affected screens at 390 px and 1440 px in light and dark themes (screenshots if you can), including empty, loading and error states.
