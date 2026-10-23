@@ -49,7 +49,10 @@ export default defineSchema({
         startedAt: v.number(),
         endedAt: v.optional(v.number()),
         durationSec: v.optional(v.number()),
-    }).index("by_userId_startedAt", ["userId", "startedAt"]),
+    })
+        .index("by_userId_startedAt", ["userId", "startedAt"])
+        // Open calls have no endedAt; calls.endStale scans them.
+        .index("by_endedAt", ["endedAt"]),
 
     callTurns: defineTable({
         callId: v.id("calls"),

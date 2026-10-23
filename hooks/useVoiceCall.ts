@@ -303,6 +303,13 @@ export function useVoiceCall(counsellorSlug: string) {
                 if (myTurn !== turnGenRef.current) return;
                 console.error("[voice] turn failed", e);
                 feedRef.current = null;
+                if ((e as { data?: unknown })?.data === "Call has ended") {
+                    // The server closed this call after a long silence (calls.endStale); stop listening.
+                    dgWsRef.current?.close();
+                    setPhase("error");
+                    setError("This call ended after a long silence. Start it again to keep talking.");
+                    return;
+                }
                 setActivity("listening");
                 const limited = (e as { data?: { kind?: string } })?.data?.kind === "RateLimited";
                 setCaptions((c) => ({

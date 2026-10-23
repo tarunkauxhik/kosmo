@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as calls from "../calls.js";
 import type * as chat from "../chat.js";
 import type * as counsellors from "../counsellors.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as lib_llm from "../lib/llm.js";
 import type * as lib_prompts from "../lib/prompts.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   calls: typeof calls;
   chat: typeof chat;
   counsellors: typeof counsellors;
+  crons: typeof crons;
   http: typeof http;
   "lib/llm": typeof lib_llm;
   "lib/prompts": typeof lib_prompts;

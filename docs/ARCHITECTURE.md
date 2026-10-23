@@ -97,7 +97,8 @@ Source of truth: `convex/schema.ts`. Better Auth keeps its own user, session and
 | `counsellors` | `list`, `getBySlug` (signed in only) | `seed` |
 | `user` | `ensureUser`, `getProfile`, `saveProfile`, `generateProfileUploadUrl` | |
 | `chat` | `getSession`, `listSessions`, `send` (action) | `beginTurn`, `startReply`, `updateReply`, `discardReply` |
-| `calls` | `start`, `end`, `listMine`, `getMine`, `liveReply`, `respond` (action) | `beginTurn`, `startBotTurn`, `updateBotTurn`, `discardBotTurn` |
+| `calls` | `start`, `end`, `listMine`, `getMine`, `liveReply`, `respond` (action) | `beginTurn`, `startBotTurn`, `updateBotTurn`, `discardBotTurn`, `endStale` |
+| `crons` | | every 5 min: `calls.endStale` |
 | `limits` | `consume` (used by Next.js API routes) | |
 | `auth` | `getCurrentUser` | |
 
@@ -167,6 +168,8 @@ sequenceDiagram
 ```
 
 The persona greets first: `calls.respond` with `kickoff: true` asks for a greeting that is not stored as a user turn.
+
+Only the browser calls `calls.end`, so a closed tab or dropped network would leave a call open. A cron (`convex/crons.ts`) runs `calls.endStale` every 5 minutes: any open call (index `by_endedAt`) with no new turn for 10 minutes is ended as of its last turn, so its duration stays honest. If the caller was only silent and speaks again, `respond` refuses with "Call has ended" and the call screen asks them to start again.
 
 The call speaks as soon as the first sentence is complete instead of waiting for the whole reply. `useVoiceCall` cuts the streamed text at sentence ends (not after abbreviations like "Pt.", and not before 20 characters), mints a Rumik session per piece straight away, and plays the pieces strictly in order on one Web Audio timeline. The rest of the reply is sent when the bot turn is marked done.
 

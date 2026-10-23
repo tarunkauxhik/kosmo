@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { action, internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
+import { action, internalMutation, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { openRouterReply, throttledWriter, type LlmMessage } from "./lib/llm";
 import { voiceKickoff, voiceSystemPrompt } from "./lib/prompts";
 import { rateLimiter } from "./lib/rateLimits";
@@ -10,6 +10,15 @@ import { getUserByAuthId, promptProfile, requireUser } from "./lib/users";
 const HISTORY_LIMIT = 30;
 // The voiceTurn limit allows about 60 turns a minute, so this covers calls of well over 15 minutes.
 const MAX_TRANSCRIPT_TURNS = 1000;
+// A call with no new turn for this long is treated as abandoned (tab closed, network gone).
+export const STALE_CALL_MS = 10 * 60 * 1000;
+
+async function finishCall(ctx: MutationCtx, call: Doc<"calls">, endedAt: number) {
+    await ctx.db.patch(call._id, {
+        endedAt,
+        durationSec: Math.max(0, Math.round((endedAt - call.startedAt) / 1000)),
+    });
+}
 
 // Calls keep the portrait path they started with; show the persona's current one instead,
 // so renamed or newly added portrait files reach old calls too.
@@ -51,12 +60,35 @@ export const end = mutation({
         const call = await ctx.db.get(callId);
         if (!call || call.userId !== user._id) return null;
         if (call.endedAt) return null;
-        const endedAt = Date.now();
-        await ctx.db.patch(callId, {
-            endedAt,
-            durationSec: Math.max(0, Math.round((endedAt - call.startedAt) / 1000)),
-        });
+        await finishCall(ctx, call, Date.now());
         return null;
+    },
+});
+
+// Run by the cron in crons.ts. Only the browser ends a call, so a closed tab or dropped network
+// would leave it open forever; this ends it as of its last turn, so the duration stays honest.
+export const endStale = internalMutation({
+    args: {},
+    handler: async (ctx) => {
+        const now = Date.now();
+        // Oldest open calls first; any beyond this batch are handled on the next run.
+        const open = await ctx.db
+            .query("calls")
+            .withIndex("by_endedAt", (q) => q.eq("endedAt", undefined))
+            .take(200);
+        let ended = 0;
+        for (const call of open) {
+            const lastTurn = await ctx.db
+                .query("callTurns")
+                .withIndex("by_callId_ts", (q) => q.eq("callId", call._id))
+                .order("desc")
+                .first();
+            const lastActivity = Math.max(call.startedAt, lastTurn?.ts ?? 0);
+            if (now - lastActivity < STALE_CALL_MS) continue;
+            await finishCall(ctx, call, lastActivity);
+            ended += 1;
+        }
+        return ended;
     },
 });
 
