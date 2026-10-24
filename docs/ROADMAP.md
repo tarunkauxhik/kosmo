@@ -18,13 +18,12 @@
 
 ## Next (in priority order)
 
-1. **Add `LICENSE`** (GPL-3.0) at the repo root (maintainer).
-2. **Verify the CSP for Rumik.** `connect-src` allows `wss://*.rumik.ai` and the host of `SILK_BASE_URL`. Confirm the `ws_url` returned by `/api/voice/silk-mint` is on one of those hosts in production and that no CSP errors appear during a call.
-3. **Live-test chat and voice in production**: Gemini replies, voice notes (transcribe and TTS), a full call with barge-in, call history, rate-limit messages. Test on iOS Safari and Android Chrome.
-4. **Legal review** of `components/legal/LegalContent.tsx` (terms, privacy).
-5. **Search Console.** Verify the domain and submit `/sitemap.xml`.
-6. **Pipecat upgrade** in `voice-agent/` (currently pipecat-ai 1.2.1), or delete the folder if a server-side pipeline is not planned.
-7. **ESLint 10 and TypeScript 7** once `eslint-config-next` and the rest of the toolchain support them.
+1. **Verify the CSP for Rumik.** `connect-src` allows `wss://*.rumik.ai` and the host of `SILK_BASE_URL`. Confirm the `ws_url` returned by `/api/voice/silk-mint` is on one of those hosts in production and that no CSP errors appear during a call.
+2. **Live-test chat and voice in production**: Gemini replies, voice notes (transcribe and TTS), a full call with barge-in, call history, rate-limit messages. Test on iOS Safari and Android Chrome.
+3. **Legal review** of `components/legal/LegalContent.tsx` (terms, privacy).
+4. **Search Console.** Verify the domain and submit `/sitemap.xml`.
+5. **Pipecat upgrade** in `voice-agent/` (currently pipecat-ai 1.2.1), or delete the folder if a server-side pipeline is not planned.
+6. **ESLint 10 and TypeScript 7** once `eslint-config-next` and the rest of the toolchain support them.
 
 ## Ideas, not scheduled
 
