@@ -18,7 +18,8 @@ export async function requireIdentity(ctx: QueryCtx | MutationCtx) {
 export async function requireUser(ctx: QueryCtx | MutationCtx): Promise<Doc<"users">> {
     const identity = await requireIdentity(ctx);
     const user = await getUserByAuthId(ctx, identity.subject);
-    if (!user) throw new ConvexError("User row missing. Call user.ensureUser first.");
+    // The browser creates the row with user.ensureUser right after sign-in; this covers the brief gap before that.
+    if (!user) throw new ConvexError("Your account is still being set up. Try again in a moment.");
     return user;
 }
 

@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, query } from "./_generated/server";
-import { geminiReply, throttledWriter, type LlmMessage } from "./lib/llm";
+import { geminiReply, ModelUnavailableError, openRouterReply, throttledWriter, type LlmMessage } from "./lib/llm";
 import { chatSystemPrompt } from "./lib/prompts";
 import { rateLimiter } from "./lib/rateLimits";
 import { getUserByAuthId, promptProfile, requireIdentity } from "./lib/users";
@@ -172,7 +172,12 @@ export const send = action({
         );
         let reply: string;
         try {
-            reply = await geminiReply(chatSystemPrompt(turn.counsellor, turn.profile), turn.history, onText);
+            const system = chatSystemPrompt(turn.counsellor, turn.profile);
+            reply = await geminiReply(system, turn.history, onText).catch((error) => {
+                // Gemini quota or outage before any text arrived: answer through OpenRouter instead.
+                if (error instanceof ModelUnavailableError) return openRouterReply(system, turn.history, onText);
+                throw error;
+            });
         } catch (error) {
             await ctx.runMutation(internal.chat.discardReply, { messageId });
             throw error;

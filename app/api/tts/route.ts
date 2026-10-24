@@ -28,26 +28,20 @@ function cleanText(text: string) {
 }
 
 export async function POST(request: Request) {
-    let body: { text?: string; counsellorSlug?: string };
-    try {
-        body = await request.json();
-    } catch {
-        return Response.json({ error: "Invalid JSON body" }, { status: 400 });
-    }
+    const body = (await request.json().catch(() => ({}))) as { text?: unknown; counsellorSlug?: unknown };
+    const text = typeof body.text === "string" ? cleanText(body.text) : "";
+    const counsellorSlug = typeof body.counsellorSlug === "string" ? body.counsellorSlug : "";
 
-    const text = cleanText(body.text ?? "");
+    // Session check, rate limit and persona lookup together. A signed-out caller gets a 401 before
+    // any other answer, and the paid Rumik call waits for the guard.
+    const [blocked, counsellor] = await Promise.all([
+        guardRequest("tts"),
+        counsellorSlug ? fetchAuthQuery(api.counsellors.getBySlug, { slug: counsellorSlug }).catch(() => null) : null,
+    ]);
+    if (blocked) return blocked;
     if (!text) {
         return Response.json({ error: "Text is required" }, { status: 400 });
     }
-
-    // Session check, rate limit and persona lookup together; the paid Rumik call waits for the guard.
-    const [blocked, counsellor] = await Promise.all([
-        guardRequest("tts"),
-        body.counsellorSlug
-            ? fetchAuthQuery(api.counsellors.getBySlug, { slug: body.counsellorSlug }).catch(() => null)
-            : null,
-    ]);
-    if (blocked) return blocked;
 
     const apiKey = envOrNull("SILK_API_KEY");
     if (!apiKey) {
@@ -73,7 +67,7 @@ export async function POST(request: Request) {
         if (!upstream.ok) {
             const detail = compactRumikError(upstream.status, (await upstream.text()).slice(0, 300));
             console.error("Rumik TTS upstream failed", detail);
-            return Response.json({ error: "Voice note failed", detail }, { status: 502 });
+            return Response.json({ error: "Couldn't play this voice note right now." }, { status: 502 });
         }
 
         const audio = await upstream.arrayBuffer();

@@ -113,6 +113,7 @@ Helpers: `lib/users.ts` (identity and ownership), `lib/prompts.ts` (system promp
 | `callStart` | 20 / hour | 5 | `/api/voice/deepgram-token` (one token per call) |
 | `tts` | 40 / min | 12 | `/api/tts`, `/api/voice/silk-mint` |
 | `stt` | 20 / min | 6 | `/api/voice/transcribe` (voice notes) |
+| `photoUpload` | 10 / hour | 5 | `user.generateProfileUploadUrl` (each URL lets the browser store a file) |
 
 ## Main flows
 
@@ -135,6 +136,8 @@ sequenceDiagram
   C->>C: updateReply(done): streaming cleared
   C-->>B: ids + full text
 ```
+
+If Gemini refuses before sending any text (429 quota or a 5xx outage), the same prompt goes to OpenRouter instead, so chat keeps working when one provider is down.
 
 Replies stream: the action creates an empty assistant message and patches it as Gemini's server-sent events arrive, so the chat shows the reply as it is written. If generation fails the empty message is deleted. Only the action (through internal mutations) writes assistant messages.
 

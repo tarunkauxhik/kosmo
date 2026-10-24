@@ -5,6 +5,13 @@ export type LlmMessage = { role: "user" | "assistant"; content: string };
 // Receives the reply generated so far (not just the newest piece) each time it grows.
 export type OnText = (textSoFar: string) => Promise<void> | void;
 
+// The provider refused before sending any text (rate limit, quota, outage), so another one can still answer.
+export class ModelUnavailableError extends ConvexError<string> {
+    constructor(status: number) {
+        super(`Unable to generate a reply right now (model error ${status}).`);
+    }
+}
+
 function env(name: string) {
     const value = process.env[name];
     return value && value.trim() ? value.trim() : undefined;
@@ -74,6 +81,7 @@ export async function geminiReply(system: string, history: LlmMessage[], onText:
     );
     if (!res.ok) {
         console.error("Gemini request failed", res.status, (await res.text()).slice(0, 300));
+        if (res.status === 429 || res.status >= 500) throw new ModelUnavailableError(res.status);
         throw new ConvexError(`Unable to generate a reply right now (model error ${res.status}).`);
     }
 

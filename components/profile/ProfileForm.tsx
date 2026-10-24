@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
 import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/convex/_generated/api";
@@ -65,6 +66,7 @@ export function ProfileForm({ email, initial }: { email: string; initial: Profil
     const [errors, setErrors] = useState<Errors>({});
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(initial);
+    const [today] = useState(() => new Date().toISOString().slice(0, 10));
 
     const dirty =
         name !== saved.displayName ||
@@ -89,6 +91,7 @@ export function ProfileForm({ email, initial }: { email: string; initial: Profil
         if (!name.trim()) e.name = "Enter a name.";
         if (!gender) e.gender = "Choose one.";
         if (!birthDate) e.birthDate = "Enter your date of birth.";
+        else if (birthDate > today) e.birthDate = "That date is in the future.";
         if (!timeUnknown && !birthTime) e.birthTime = "Enter a time, or tick “I don’t know”.";
         if (!birthPlace.trim()) e.birthPlace = "Enter the city you were born in.";
         setErrors(e);
@@ -118,8 +121,12 @@ export function ProfileForm({ email, initial }: { email: string; initial: Profil
             });
             toast.success("Profile saved");
             router.refresh();
-        } catch {
-            toast.error("Your changes didn't save. Try again.");
+        } catch (err) {
+            toast.error(
+                err instanceof ConvexError && typeof err.data === "string"
+                    ? err.data
+                    : "Your changes didn't save. Try again.",
+            );
         } finally {
             setSaving(false);
         }
@@ -174,6 +181,8 @@ export function ProfileForm({ email, initial }: { email: string; initial: Profil
                             id="pf-date"
                             type="date"
                             value={birthDate}
+                            min="1900-01-01"
+                            max={today}
                             onChange={(e) => setBirthDate(e.target.value)}
                             aria-invalid={!!errors.birthDate}
                             aria-describedby={errors.birthDate ? "pf-date-err" : undefined}

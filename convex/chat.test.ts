@@ -8,6 +8,7 @@ const geminiReply = (...pieces: string[]) =>
 
 beforeEach(() => {
     vi.stubEnv("GEMINI_API_KEY", "test-key");
+    vi.stubEnv("OPENROUTER_API_KEY", "test-key");
     vi.stubGlobal(
         "fetch",
         vi.fn(async () => geminiReply("Namaste ", "Asha. ", "Saturn is slow but steady.")),
@@ -36,6 +37,25 @@ describe("chat.send", () => {
         expect(messages[1].streaming).toBeUndefined();
     });
 
+    test("falls back to OpenRouter when Gemini is out of quota", async () => {
+        const t = setup();
+        await seedCounsellor(t);
+        const asha = await signIn(t, "asha");
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async (url: string) =>
+                url.includes("generativelanguage")
+                    ? new Response("quota", { status: 429 })
+                    : sse([{ choices: [{ delta: { content: "Haan ji, bataiye." } }] }, "[DONE]"]),
+            ),
+        );
+
+        const result = await asha.action(api.chat.send, { counsellorSlug: "devrajit", content: "Hello" });
+        expect(result.text).toBe("Haan ji, bataiye.");
+        const { messages } = await asha.query(api.chat.getSession, { counsellorSlug: "devrajit" });
+        expect(messages.map((m) => m.content)).toEqual(["Hello", "Haan ji, bataiye."]);
+    });
+
     test("a failed reply leaves no empty assistant message behind", async () => {
         const t = setup();
         await seedCounsellor(t);
@@ -45,8 +65,9 @@ describe("chat.send", () => {
             vi.fn(async () => new Response("quota", { status: 429 })),
         );
 
+        // Both providers refuse.
         await expect(asha.action(api.chat.send, { counsellorSlug: "devrajit", content: "Hello" })).rejects.toThrow(
-            /model error 429/,
+            /Unable to generate a reply/,
         );
         const { messages } = await asha.query(api.chat.getSession, { counsellorSlug: "devrajit" });
         expect(messages.map((m) => m.role)).toEqual(["user"]);

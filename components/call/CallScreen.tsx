@@ -82,7 +82,7 @@ export default function CallScreen({ counsellor, onRetry }: { counsellor: CallCo
 
                     {call.phase === "error" ? (
                         <Alert variant="destructive" className="max-w-md shrink-0 text-left">
-                            <AlertTitle>Couldn&rsquo;t start the call</AlertTitle>
+                            <AlertTitle>{call.startedAt ? "The call ended" : "Couldn’t start the call"}</AlertTitle>
                             <AlertDescription>{call.error}</AlertDescription>
                         </Alert>
                     ) : call.phase === "live" ? (

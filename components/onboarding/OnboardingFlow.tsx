@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
 import { ArrowLeft, Lock } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { usePhotoUpload } from "@/hooks/usePhotoUpload";
@@ -34,7 +35,10 @@ export default function OnboardingFlow({
     const saveProfile = useMutation(api.user.saveProfile);
     const photo = usePhotoUpload();
     const [step, setStep] = useState(0);
-    const [name, setName] = useState(initialName ?? "");
+    // Right after sign-up the account row (and the name given there) can arrive just after this mounts,
+    // so the field shows it until the person types something of their own.
+    const [typedName, setName] = useState<string | null>(null);
+    const name = typedName ?? initialName ?? "";
     const [gender, setGender] = useState<Gender | null>(null);
     const [birthDate, setBirthDate] = useState("");
     const [birthTime, setBirthTime] = useState("");
@@ -89,9 +93,14 @@ export default function OnboardingFlow({
                 birthPlace: birthPlace.trim(),
                 profileImageStorageId: photo.storageId ?? undefined,
             });
-        } catch {
+        } catch (err) {
             setSaving(false);
-            setErrors({ form: "Your details didn't save. Check your connection and try again." });
+            setErrors({
+                form:
+                    err instanceof ConvexError && typeof err.data === "string"
+                        ? err.data
+                        : "Your details didn't save. Check your connection and try again.",
+            });
         }
     }
 
@@ -183,6 +192,7 @@ export default function OnboardingFlow({
                                     id="ob-date"
                                     type="date"
                                     value={birthDate}
+                                    min="1900-01-01"
                                     max={today}
                                     onChange={(e) => setBirthDate(e.target.value)}
                                     aria-invalid={!!errors.birthDate}

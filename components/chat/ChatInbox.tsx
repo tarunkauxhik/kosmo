@@ -80,6 +80,7 @@ export function ChatInbox({ counsellors, activeSlug }: { counsellors: ChatCounse
                     />
                     <Input
                         type="search"
+                        name="astrologer"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Find an astrologer"

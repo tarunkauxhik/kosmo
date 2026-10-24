@@ -50,6 +50,7 @@ export function PhotoPicker({
             <input
                 ref={inputRef}
                 type="file"
+                name="photo"
                 accept="image/*"
                 className="sr-only"
                 tabIndex={-1}

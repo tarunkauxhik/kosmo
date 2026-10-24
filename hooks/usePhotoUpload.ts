@@ -33,8 +33,12 @@ export function usePhotoUpload(initialUrl: string | null = null) {
             if (!res.ok) throw new Error(`upload failed: ${res.status}`);
             const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
             setStorageId(storageId);
-        } catch {
-            setError("The upload didn't go through. Check your connection and try again.");
+        } catch (err) {
+            setError(
+                (err as { data?: { kind?: string } })?.data?.kind === "RateLimited"
+                    ? "You've uploaded several photos in a short time. Try again in a while."
+                    : "The upload didn't go through. Check your connection and try again.",
+            );
             setPreview(initialUrl);
             setStorageId(null);
         } finally {

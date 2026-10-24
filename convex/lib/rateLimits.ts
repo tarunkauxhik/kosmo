@@ -9,4 +9,6 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
     callStart: { kind: "token bucket", rate: 20, period: HOUR, capacity: 5 },
     tts: { kind: "token bucket", rate: 40, period: MINUTE, capacity: 12 },
     stt: { kind: "token bucket", rate: 20, period: MINUTE, capacity: 6 },
+    // Each upload URL lets the browser store a file, so a caller can't fill storage with them.
+    photoUpload: { kind: "token bucket", rate: 10, period: HOUR, capacity: 5 },
 });

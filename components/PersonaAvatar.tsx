@@ -27,11 +27,11 @@ export function PersonaAvatar({
             <Image
                 src={src}
                 alt={`AI-generated portrait of ${name}`}
-                fill
-                sizes={sizes ?? `${size}px`}
+                // A fixed size gets real width and height attributes; a responsive one fills its sized wrapper.
+                {...(sizes ? { fill: true, sizes } : { width: size, height: size })}
                 loading={eager ? "eager" : "lazy"}
                 fetchPriority={eager ? "high" : "auto"}
-                className="image-outline rounded-full object-cover"
+                className="image-outline block size-full rounded-full object-cover"
             />
         </span>
     );

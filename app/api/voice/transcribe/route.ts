@@ -53,12 +53,9 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-        let detail = "";
-        try {
-            const body = await response.json();
-            detail = typeof body.err_msg === "string" ? body.err_msg : "";
-        } catch {}
-        return NextResponse.json({ error: deepgramError(response.status), detail }, { status: response.status });
+        console.error("Deepgram transcription failed", response.status);
+        // Deepgram's own status (a 401 for a bad key, say) would look like the caller's session expired.
+        return NextResponse.json({ error: deepgramError(response.status) }, { status: 502 });
     }
 
     const body = await response.json();

@@ -2,10 +2,24 @@ import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { ConvexError, v } from "convex/values";
 import { gender } from "./schema";
+import { rateLimiter } from "./lib/rateLimits";
 import { getUserByAuthId, requireIdentity, requireUser } from "./lib/users";
 
 // Matches the client-side limit in hooks/usePhotoUpload.ts.
 const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
+
+// A real calendar date (YYYY-MM-DD) from 1900 to today. A day of slack lets "today" in a timezone
+// ahead of UTC through.
+function isBirthDate(value: string) {
+    const ms = Date.parse(value);
+    return (
+        /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+        !Number.isNaN(ms) &&
+        new Date(ms).toISOString().slice(0, 10) === value &&
+        value >= "1900-01-01" &&
+        ms <= Date.now() + 86_400_000
+    );
+}
 
 export const ensureUser = mutation({
     args: {},
@@ -57,7 +71,8 @@ export const getProfile = query({
 export const generateProfileUploadUrl = mutation({
     args: {},
     handler: async (ctx) => {
-        await requireIdentity(ctx);
+        const identity = await requireIdentity(ctx);
+        await rateLimiter.limit(ctx, "photoUpload", { key: identity.subject, throws: true });
         return await ctx.storage.generateUploadUrl();
     },
 });
@@ -74,6 +89,17 @@ export const saveProfile = mutation({
     },
     handler: async (ctx, args) => {
         const user = await requireUser(ctx);
+
+        // The forms check these too, but the mutation can be called directly.
+        const displayName = args.displayName.trim().slice(0, 80);
+        const birthPlace = args.birthPlace.trim().slice(0, 140);
+        if (!displayName) throw new ConvexError("Enter a name.");
+        if (!birthPlace) throw new ConvexError("Enter the city you were born in.");
+        if (!isBirthDate(args.birthDate)) throw new ConvexError("Enter a real date of birth.");
+        const birthTime = args.birthTimeUnknown ? undefined : args.birthTime;
+        if (!args.birthTimeUnknown && !/^([01]\d|2[0-3]):[0-5]\d$/.test(birthTime ?? "")) {
+            throw new ConvexError("Enter a time of birth, or tick that you don't know it.");
+        }
 
         const newImage = args.profileImageStorageId;
         if (newImage && newImage !== user.profileImageStorageId) {
@@ -98,12 +124,12 @@ export const saveProfile = mutation({
         }
 
         await ctx.db.patch(user._id, {
-            displayName: args.displayName.trim().slice(0, 80),
+            displayName,
             gender: args.gender,
-            birthDate: args.birthDate.slice(0, 10),
-            birthTime: args.birthTimeUnknown ? undefined : args.birthTime?.slice(0, 5),
+            birthDate: args.birthDate,
+            birthTime,
             birthTimeUnknown: args.birthTimeUnknown,
-            birthPlace: args.birthPlace.trim().slice(0, 140),
+            birthPlace,
             profileImageStorageId: args.profileImageStorageId ?? user.profileImageStorageId,
             onboardedAt: Date.now(),
         });

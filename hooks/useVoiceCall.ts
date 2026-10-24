@@ -23,6 +23,7 @@ function friendlyError(err: unknown) {
         return "The microphone prompt timed out. Use the mic icon in the address bar to allow access, then try again.";
     if ((err as { data?: { kind?: string } })?.data?.kind === "RateLimited")
         return "You've started several calls in a short time. Wait a minute, then try again.";
+    if (m.includes("connection lost")) return "The call was disconnected. Check your connection, then start it again.";
     if (m.includes("speech recognition"))
         return "Voice recognition isn't available right now. Try again shortly, or use chat instead.";
     return "The call couldn't connect. Check your connection and try again.";
@@ -89,6 +90,12 @@ export function useVoiceCall(counsellorSlug: string) {
         if (audioCtxRef.current) playAtRef.current = audioCtxRef.current.currentTime;
         setActivity((a) => (a === "speaking" ? "listening" : a));
     }, []);
+
+    // The caller started talking. Cut the reply only if it is actually playing or about to; a reply
+    // still being generated is kept, and a finished turn from the caller supersedes it anyway.
+    const bargeIn = useCallback(() => {
+        if (ttsSourcesRef.current.length || pendingRef.current) stopPlayback();
+    }, [stopPlayback]);
 
     // Back to listening once the reply is complete and every piece has finished playing.
     const settleIfDone = useCallback(() => {
@@ -305,7 +312,9 @@ export function useVoiceCall(counsellorSlug: string) {
                 feedRef.current = null;
                 if ((e as { data?: unknown })?.data === "Call has ended") {
                     // The server closed this call after a long silence (calls.endStale); stop listening.
-                    dgWsRef.current?.close();
+                    const ws = dgWsRef.current;
+                    dgWsRef.current = null;
+                    ws?.close();
                     setPhase("error");
                     setError("This call ended after a long silence. Start it again to keep talking.");
                     return;
@@ -426,7 +435,7 @@ export function useVoiceCall(counsellorSlug: string) {
                         const text = (msg.transcript || "").trim();
                         if (msg.event === "Update" && text) {
                             setCaptions((c) => ({ ...c, user: text }));
-                            stopPlayback();
+                            bargeIn();
                             interimBuf = text;
                         } else if (msg.event === "EndOfTurn" || msg.event === "EagerEndOfTurn") {
                             const final = (text || interimBuf).trim();
@@ -436,7 +445,7 @@ export function useVoiceCall(counsellorSlug: string) {
                                 handleUserTurn(final);
                             }
                         } else if (msg.event === "StartOfTurn" || msg.event === "TurnResumed") {
-                            stopPlayback();
+                            bargeIn();
                         }
                     } else if (msg.type === "Error") {
                         console.error("[voice] dg error:", msg);
@@ -445,8 +454,20 @@ export function useVoiceCall(counsellorSlug: string) {
 
                 dgWs.onerror = (err) => {
                     console.error("DG ws error", err);
+                    dgWsRef.current = null; // the close that follows needs no second message
                     setPhase("error");
                     setError(friendlyError(new Error("speech recognition")));
+                };
+
+                // Network drop or Deepgram hanging up: without this the screen would keep saying
+                // "Listening" while nothing hears the caller. Our own closes clear the ref first.
+                dgWs.onclose = () => {
+                    if (cancelled || dgWsRef.current !== dgWs) return;
+                    dgWsRef.current = null;
+                    stopPlayback();
+                    turnGenRef.current += 1;
+                    setPhase("error");
+                    setError(friendlyError(new Error("connection lost")));
                 };
             } catch (err) {
                 if (cancelled) return; // expected during strict-mode unmount
@@ -478,10 +499,11 @@ export function useVoiceCall(counsellorSlug: string) {
             micSourceRef.current = null;
             micCtxRef.current?.close().catch(() => {});
             micCtxRef.current = null;
-            try {
-                dgWsRef.current?.close();
-            } catch {}
+            const ws = dgWsRef.current;
             dgWsRef.current = null;
+            try {
+                ws?.close();
+            } catch {}
             streamRef.current?.getTracks().forEach((t) => t.stop());
             streamRef.current = null;
             audioCtxRef.current?.close().catch(() => {});
@@ -491,7 +513,7 @@ export function useVoiceCall(counsellorSlug: string) {
             callIdPromiseRef.current = null;
             if (id) endCall({ callId: id }).catch((e) => console.error("[voice] end call (cleanup) failed", e));
         };
-    }, [handleUserTurn, ensureCallStarted, stopPlayback, endCall]);
+    }, [handleUserTurn, ensureCallStarted, stopPlayback, bargeIn, endCall]);
 
     const toggleMute = useCallback(() => {
         setMuted((m) => {
