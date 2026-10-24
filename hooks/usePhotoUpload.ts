@@ -22,7 +22,8 @@ export function usePhotoUpload(initialUrl: string | null = null) {
     }, [preview]);
 
     async function upload(file: File) {
-        if (!file.type.startsWith("image/")) return setError("Choose an image file (JPG, PNG or WebP).");
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
+            return setError("Choose an image file (JPG, PNG or WebP).");
         if (file.size > MAX_BYTES) return setError("That image is over 8 MB. Choose a smaller one.");
         setError(null);
         setUploading(true);

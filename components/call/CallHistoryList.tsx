@@ -89,16 +89,16 @@ export async function CallHistoryList() {
 
 export function CallHistorySkeleton() {
     return (
-        <ul className="divide-y rounded-2xl bg-card shadow-surface" role="status" aria-label="Loading calls">
+        <div className="divide-y rounded-2xl bg-card shadow-surface" role="status" aria-label="Loading calls">
             {Array.from({ length: 5 }, (_, i) => (
-                <li key={i} className="flex items-center gap-4 px-4 py-3">
+                <div key={i} className="flex items-center gap-4 px-4 py-3">
                     <Skeleton className="size-11 rounded-full" />
                     <div className="flex-1 space-y-2">
                         <Skeleton className="h-4 w-40 rounded-md" />
                         <Skeleton className="h-3 w-28 rounded-md" />
                     </div>
-                </li>
+                </div>
             ))}
-        </ul>
+        </div>
     );
 }

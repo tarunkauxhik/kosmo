@@ -7,6 +7,8 @@ import { getUserByAuthId, requireIdentity, requireUser } from "./lib/users";
 
 // Matches the client-side limit in hooks/usePhotoUpload.ts.
 const MAX_PROFILE_IMAGE_BYTES = 8 * 1024 * 1024;
+// No SVG: it can carry script, and the file is served from our storage URL.
+const PROFILE_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 // A real calendar date (YYYY-MM-DD) from 1900 to today. A day of slack lets "today" in a timezone
 // ahead of UTC through.
@@ -109,7 +111,12 @@ export const saveProfile = mutation({
                 .query("users")
                 .withIndex("by_profileImageStorageId", (q) => q.eq("profileImageStorageId", newImage))
                 .first();
-            if (!file || !file.contentType?.startsWith("image/") || file.size > MAX_PROFILE_IMAGE_BYTES || claimed) {
+            if (
+                !file ||
+                !PROFILE_IMAGE_TYPES.includes(file.contentType ?? "") ||
+                file.size > MAX_PROFILE_IMAGE_BYTES ||
+                claimed
+            ) {
                 throw new ConvexError("That photo couldn't be used. Upload it again.");
             }
 

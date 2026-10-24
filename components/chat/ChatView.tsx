@@ -91,27 +91,25 @@ export function ChatView({ counsellor, displayName }: { counsellor: ChatCounsell
                 {chat.loading ? (
                     <MessageListSkeleton />
                 ) : (
-                    <ul
-                        className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6"
-                        role="log"
-                        aria-live="polite"
-                        aria-relevant="additions"
-                    >
-                        {chat.messages.map((m) => (
-                            <MessageBubble
-                                key={m.id}
-                                message={m}
-                                note={tts.notes[m.id]}
-                                playing={tts.playingId === m.id}
-                                onTogglePlay={() => play(m.id, m.content)}
-                                onRetry={() => {
-                                    chat.discard(m.id);
-                                    send(m.content, { kind: m.kind });
-                                }}
-                            />
-                        ))}
-                        {chat.thinking && <ThinkingBubble name={first} />}
-                    </ul>
+                    // role="log" sits on a wrapper: on the <ul> itself it would hide the list from screen readers.
+                    <div role="log" aria-live="polite" aria-relevant="additions">
+                        <ul className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
+                            {chat.messages.map((m) => (
+                                <MessageBubble
+                                    key={m.id}
+                                    message={m}
+                                    note={tts.notes[m.id]}
+                                    playing={tts.playingId === m.id}
+                                    onTogglePlay={() => play(m.id, m.content)}
+                                    onRetry={() => {
+                                        chat.discard(m.id);
+                                        send(m.content, { kind: m.kind });
+                                    }}
+                                />
+                            ))}
+                            {chat.thinking && <ThinkingBubble name={first} />}
+                        </ul>
+                    </div>
                 )}
             </div>
 

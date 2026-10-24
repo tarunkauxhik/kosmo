@@ -91,7 +91,7 @@ export default async function CallTranscriptPage({ params }: { params: Promise<{
                                     </span>
                                     <p
                                         className={cn(
-                                            "max-w-[88%] text-[0.9375rem] leading-relaxed sm:max-w-[75%]",
+                                            "max-w-[88%] text-[0.9375rem] leading-relaxed wrap-anywhere sm:max-w-[75%]",
                                             mine ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5" : "py-0.5",
                                         )}
                                     >

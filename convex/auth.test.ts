@@ -54,7 +54,11 @@ test("saveProfile only accepts a photo that is an image nobody else has claimed"
     const ravi = await signIn(t, "ravi");
     const [photo, notAnImage] = await t.run(async (ctx) => [
         await ctx.storage.store(new Blob([new Uint8Array([137, 80, 78, 71])], { type: "image/png" })),
-        await ctx.storage.store(new Blob(["hello"], { type: "text/plain" })),
+        await ctx.storage.store(
+            new Blob(['<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'], {
+                type: "image/svg+xml",
+            }),
+        ),
     ]);
 
     await asha.mutation(api.user.saveProfile, { ...profile, profileImageStorageId: photo });

@@ -40,17 +40,17 @@ function Row({ c, active, meta, preview }: { c: ChatCounsellor; active: boolean;
 
 export function ChatInboxSkeleton() {
     return (
-        <ul className="space-y-1 p-3" role="status" aria-label="Loading chats">
+        <div className="space-y-1 p-3" role="status" aria-label="Loading chats">
             {Array.from({ length: 6 }, (_, i) => (
-                <li key={i} className="flex items-center gap-3 px-3 py-2.5">
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5">
                     <Skeleton className="size-10 shrink-0 rounded-full" />
                     <div className="flex-1 space-y-2">
                         <Skeleton className="h-4 w-1/2 rounded-md" />
                         <Skeleton className="h-3 w-4/5 rounded-md" />
                     </div>
-                </li>
+                </div>
             ))}
-        </ul>
+        </div>
     );
 }
 

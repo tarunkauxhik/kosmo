@@ -51,7 +51,7 @@ export function PhotoPicker({
                 ref={inputRef}
                 type="file"
                 name="photo"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
                 tabIndex={-1}
                 aria-hidden

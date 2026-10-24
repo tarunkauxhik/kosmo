@@ -29,7 +29,7 @@ export function MessageBubble({
                 {/* Your messages sit in a soft bubble; replies read as plain text. */}
                 <div
                     className={cn(
-                        "text-[0.9375rem] leading-relaxed break-words",
+                        "text-[0.9375rem] leading-relaxed wrap-anywhere",
                         mine ? "rounded-2xl rounded-br-md bg-muted px-4 py-2.5" : "py-1",
                         message.status === "sending" && "opacity-80",
                         failed && "ring-1 ring-destructive/60",
@@ -115,12 +115,12 @@ export function ThinkingBubble({ name }: { name: string }) {
 
 export function MessageListSkeleton() {
     return (
-        <ul className="space-y-4 p-5" role="status" aria-label="Loading conversation">
+        <div className="space-y-4 p-5" role="status" aria-label="Loading conversation">
             {[60, 40, 75, 50].map((w, i) => (
-                <li key={i} className={cn("flex", i % 2 ? "justify-end" : "justify-start")}>
+                <div key={i} className={cn("flex", i % 2 ? "justify-end" : "justify-start")}>
                     <Skeleton className="h-14 rounded-2xl" style={{ width: `${w}%` }} />
-                </li>
+                </div>
             ))}
-        </ul>
+        </div>
     );
 }

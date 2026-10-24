@@ -21,7 +21,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!c) return {};
     return pageMetadata({
         title: `${c.name}, AI astrologer persona`,
-        description: `${firstName(c.name)} is an AI astrologer persona (${c.specialties.join(", ")}) from ${c.hometown}. ${c.tagline} Call or chat in ${c.languages.slice(0, 2).join(" or ")}.`,
+        // Tagline first and at most two specialties keeps it near the ~160 characters search results show.
+        description: `${c.tagline} ${firstName(c.name)} is an AI astrologer persona from ${c.hometown}, for ${c.specialties.slice(0, 2).join(" and ")}.`,
         path: `/astrologers/${c.slug}`,
         ownImage: true,
     });
